@@ -22,7 +22,7 @@ public class Sma implements Strategy {
     }
 
     @Override
-    public TradeActionType getSignalSide(Table inputDf, int position) {
+    public TradeActionType getSignalSide(String symbol, Table inputDf, int position) {
         // 生成关键指标，这里是sma12
         String benchmark = "sma" + config.getNumStatsBars();
         Table df = addBenchMarkColumn(inputDf, benchmark);

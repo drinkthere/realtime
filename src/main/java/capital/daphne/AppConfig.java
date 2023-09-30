@@ -6,25 +6,24 @@ import java.util.List;
 
 @Data
 public class AppConfig {
-    private String apiKey;
     private Http http;
     private Database database;
     private Tws tws;
     private List<SymbolItem> symbols;
-    private int numStatsBars;
     private String strategy;
+    private int numStatsBars;
     private boolean portfolioRequiredToClose;
-    private int maxPortfolioPositions;
-    private float positionSignalMarginOffset;
     private int minDurationAfterSignal;
     private int minIntervalBetweenSignal;
+    private boolean hardLimit;
+    private int maxPortfolioPositions;
+    private float positionSignalMarginOffset;
     private float signalMargin;
     private float volatilityA;
     private float volatilityB;
     private float volatilityC;
-    private boolean hardLimit;
-    private int orderSize;
 
+    private int orderSize;
 
     @Data
     public static class Http {

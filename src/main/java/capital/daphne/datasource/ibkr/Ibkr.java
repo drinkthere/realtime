@@ -107,7 +107,7 @@ public class Ibkr {
             double askPrice = topMktDataHandler.getAskPrice(tickerSblReqIdMap.get(symbol));
 
             // 判断是否要下单
-            Strategy.TradeActionType side = strategyHandler.getSignalSide(df, position);
+            Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, df, position);
             if (side == Strategy.TradeActionType.NO_ACTION) {
                 return signalList;
             }
