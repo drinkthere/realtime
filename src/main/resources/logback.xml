@@ -1,0 +1,18 @@
+<configuration>
+    <appender name="fileAppender" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>./logs/realtime.log</file> <!-- 日志文件名 -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <!-- 定义日志文件的最大大小和保留的备份文件数量 -->
+            <fileNamePattern>realtime.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="fileAppender"/>
+    </root>
+</configuration>

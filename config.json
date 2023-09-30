@@ -1,0 +1,48 @@
+{
+  "http": {
+    "host": "127.0.0.1",
+    "port": 5000,
+    "path": "trade"
+  },
+  "database": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "root",
+    "password": "123456",
+    "dbname": "quant"
+  },
+  "tws": {
+    "host": "127.0.0.1",
+    "port": 7497,
+    "clientId": 5
+  },
+  "apiKey": "X0UI8vtT0aWfqFalQb0_vFgE42pLf7ro",
+  "numStatsBars": 12,
+  "hardLimit": true,
+  "portfolioRequiredToClose": false,
+  "maxPortfolioPositions": 500,
+  "positionSignalMarginOffset": -0.00002,
+  "minDurationAfterSignal": 5,
+  "minIntervalBetweenSignal": 15,
+  "signalMargin": 0.0005,
+  "volatilityA": -0.1,
+  "volatilityB": 20,
+  "volatilityC": 300,
+  "orderSize": 100,
+  "symbols": [
+    {
+      "symbol": "SPY",
+      "exchange": "SMART",
+      "primaryExchange": "ARCA",
+      "currency": "USD",
+      "strategy": "SMA"
+    },
+    {
+      "symbol": "QQQ",
+      "exchange": "SMART",
+      "primaryExchange": "ARCA",
+      "currency": "USD",
+      "strategy": "SMA"
+    }
+  ]
+}
