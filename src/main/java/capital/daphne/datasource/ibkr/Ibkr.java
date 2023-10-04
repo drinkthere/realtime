@@ -69,13 +69,13 @@ public class Ibkr {
 
 
     public void startRealtimeWatcher() {
-        logger.info("订阅5s bar数据");
+        logger.info("subscribe 5s bar");
         sub5sBars();
 
-        logger.info("订阅ticker数据");
+        logger.info("subscribe ticker");
         subMktData();
 
-        logger.info("订阅position数据");
+        logger.info("subscribe position");
         subPosition();
     }
 

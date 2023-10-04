@@ -3,3 +3,4 @@ logs
 target
 *.log
 .DS_Store
+out

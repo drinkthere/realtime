@@ -22,7 +22,7 @@ public class Main {
 
     public static void main(String[] args) {
         // 加载配置文件
-        logger.info("加载配置文件");
+        logger.info("loading configuration file");
         String configFile;
         String projectRoot = System.getProperty("user.dir");
         if (args.length == 0) {
@@ -40,7 +40,7 @@ public class Main {
             return;
         }
 
-        logger.info("初始化数据对象：mysql");
+        logger.info("initialize database handler: mysql");
         Db db = new Db(
                 appConfig.getDatabase().getHost(),
                 appConfig.getDatabase().getPort(),
@@ -49,22 +49,22 @@ public class Main {
                 appConfig.getDatabase().getDbname()
         );
 
-        logger.info("初始化缓存对象：redis");
+        logger.info("initialize cache handler: redis");
         JedisUtil.initializeJedisPool(
                 appConfig.getRedis().getHost(),
                 appConfig.getRedis().getPort(),
                 appConfig.getRedis().getPassword()
         );
 
-        logger.info("初始化数据源服务：ibkr");
+        logger.info("initialize datasource handler: ibkr");
         Ibkr ibkr = new Ibkr(appConfig, db);
         ibkr.connectTWS();
 
-        logger.info("初始化wap信息");
+        logger.info("initialize wap data");
         Map<String, double[]> symbolWapMap = db.loadWapCache(appConfig.getSymbols());
         ibkr.initWap(symbolWapMap);
 
-        logger.info("启动IBKR监听服务, 监听ticker和5s bar");
+        logger.info("start IBKR watcher: tickers and 5s bars");
         ibkr.startRealtimeWatcher();
 
         // 5s一次检查是否需要触发买/卖信号
@@ -116,7 +116,7 @@ public class Main {
                             }
                         }
                     } else {
-                        logger.info("不在开盘时间");
+                        logger.info("market is not open");
                     }
                 }
 
@@ -126,7 +126,7 @@ public class Main {
 
             } catch (InterruptedException e) {
                 //e.printStackTrace();
-                logger.error("服务被中断, error:" + e.getMessage());
+                logger.error("service interruption, error:" + e.getMessage());
                 return;
             }
         }
