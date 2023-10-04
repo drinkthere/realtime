@@ -49,6 +49,13 @@ public class Main {
                 appConfig.getDatabase().getDbname()
         );
 
+        logger.info("初始化缓存对象：redis");
+        JedisUtil.initializeJedisPool(
+                appConfig.getRedis().getHost(),
+                appConfig.getRedis().getPort(),
+                appConfig.getRedis().getPassword()
+        );
+
         logger.info("初始化数据源服务：ibkr");
         Ibkr ibkr = new Ibkr(appConfig, db);
         ibkr.connectTWS();

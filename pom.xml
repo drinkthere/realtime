@@ -67,6 +67,11 @@
             <version>RELEASE</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>redis.clients</groupId>
+            <artifactId>jedis</artifactId>
+            <version>3.7.0</version> <!-- 请使用最新版本 -->
+        </dependency>
     </dependencies>
 
 </project>

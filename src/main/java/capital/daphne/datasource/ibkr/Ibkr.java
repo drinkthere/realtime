@@ -33,8 +33,6 @@ public class Ibkr {
 
     private PositionHandler positionHandler;
 
-    private Map<String, Integer> tickerSblReqIdMap;
-
 
     private Map<String, Integer> barSblReqIdMap;
 
@@ -46,7 +44,6 @@ public class Ibkr {
         db = dbHandler;
         topMktDataHandler = new TopMktDataHandler();
         positionHandler = new PositionHandler();
-        tickerSblReqIdMap = new HashMap<>();
 
         List<String> symbols = config.getSymbols().stream()
                 .map(AppConfig.SymbolConfig::getSymbol)
@@ -101,8 +98,8 @@ public class Ibkr {
             // logger.info(symbol + "," + df.toString());
 
             // 获取当前bid和ask信息
-            double bidPrice = topMktDataHandler.getBidPrice(tickerSblReqIdMap.get(symbol));
-            double askPrice = topMktDataHandler.getAskPrice(tickerSblReqIdMap.get(symbol));
+            double bidPrice = topMktDataHandler.getBidPrice(symbol);
+            double askPrice = topMktDataHandler.getAskPrice(symbol);
 
             // 判断是否要下单
             Strategy strategyHandler = initStrategyHandler(symbolConfig.getStrategy());
@@ -172,7 +169,7 @@ public class Ibkr {
                 Contract contract = genContract(symbol);
                 // contract, genericTickList, snapshot, regulatorySnapshot, ITopMktDataHandler
                 int reqId = ic.reqTopMktData(contract, "", false, false, topMktDataHandler);
-                tickerSblReqIdMap.put(symbol, reqId);
+                topMktDataHandler.bindReqIdSymbol(symbol, reqId);
             }
         } catch (Exception e) {
             logger.error("failed to subscribe market ticker info, err:" + e.getMessage());

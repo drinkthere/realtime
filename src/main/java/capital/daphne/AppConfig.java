@@ -8,6 +8,7 @@ import java.util.List;
 public class AppConfig {
     private Http http;
     private Database database;
+    private Redis redis;
     private Tws tws;
     private List<SymbolConfig> symbols;
 
@@ -26,6 +27,13 @@ public class AppConfig {
         private String user;
         private String password;
         private String dbname;
+    }
+
+    @Data
+    public static class Redis {
+        private String host;
+        private int port;
+        private String password;
     }
 
     @Data
