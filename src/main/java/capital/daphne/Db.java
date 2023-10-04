@@ -25,14 +25,15 @@ public class Db {
     public void addSignal(Signal sig) {
         try {
             Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
-            String insertSQL = "INSERT INTO tb_signal (uuid, symbol, bid_price, ask_price, price, quantity) VALUES (?, ?, ?, ?, ?, ?)";
+            String insertSQL = "INSERT INTO tb_signal (uuid, symbol, bid_price, ask_price, price, wap, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)";
             PreparedStatement insertStatement = connection.prepareStatement(insertSQL);
             insertStatement.setString(1, sig.getUuid());
             insertStatement.setString(2, sig.getSymbol());
             insertStatement.setDouble(3, sig.getBidPrice());
             insertStatement.setDouble(4, sig.getAskPrice());
             insertStatement.setDouble(5, sig.getPrice());
-            insertStatement.setInt(6, sig.getQuantity());
+            insertStatement.setDouble(6, sig.getWap());
+            insertStatement.setInt(7, sig.getQuantity());
             insertStatement.executeUpdate();
             logger.info("save signal successfully, signal: " + sig);
             connection.close();

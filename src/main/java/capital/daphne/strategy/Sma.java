@@ -1,6 +1,9 @@
 package capital.daphne.strategy;
 
 import capital.daphne.AppConfig;
+import capital.daphne.datasource.ibkr.Ibkr;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tech.tablesaw.api.DoubleColumn;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
@@ -10,15 +13,28 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
 
 public class Sma implements Strategy {
+    private static final Logger logger = LoggerFactory.getLogger(Ibkr.class);
+
     private AppConfig config;
-    private TradeActionType lastAction = TradeActionType.NO_ACTION;
-    private LocalDateTime lastBuyDatetime;
-    private LocalDateTime lastSellDatetime;
+
+    private Map<String, Map<String, Object>> symbolActionMap;
 
     public Sma(AppConfig conf) {
         config = conf;
+
+        Map<String, Object> actionMap = new HashMap<>();
+        actionMap.put("lastAction", TradeActionType.NO_ACTION);
+        actionMap.put("lastBuyDatetime", null);
+        actionMap.put("lastSellDatetime", null);
+        symbolActionMap = new HashMap<>();
+        for (AppConfig.SymbolItem si : conf.getSymbols()) {
+            symbolActionMap.put(si.getSymbol(), actionMap);
+        }
     }
 
     @Override
@@ -28,10 +44,22 @@ public class Sma implements Strategy {
         Table df = addBenchMarkColumn(inputDf, benchmark);
         Row latestBar = df.row(df.rowCount() - 1);
 
-        double volatility = latestBar.getDouble("volatility");
-        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+        // 获取symbol的相关配置
+        AppConfig.SymbolItem symbolConfig;
+        Optional<AppConfig.SymbolItem> symbolItemOptional = config.getSymbols().stream()
+                .filter(item -> item.getSymbol().equals(symbol))
+                .findFirst();
+        if (symbolItemOptional.isPresent()) {
+            symbolConfig = symbolItemOptional.get();
+        } else {
+            logger.error("Can't find the configuration of symbol=" + symbol);
+            return TradeActionType.NO_ACTION;
+        }
 
-        TradeActionType action = processPriceBar(latestBar, volatilityMultiplier, position, benchmark);
+        double volatility = latestBar.getDouble("volatility");
+        double volatilityMultiplier = calToVolatilityMultiplier(symbolConfig, volatility);
+
+        TradeActionType action = processPriceBar(symbolConfig, latestBar, volatilityMultiplier, position, benchmark);
 
         return action;
     }
@@ -44,11 +72,18 @@ public class Sma implements Strategy {
         return df;
     }
 
-    private double calToVolatilityMultiplier(double volatility) {
-        return 1 + config.getVolatilityA() + config.getVolatilityB() * volatility + config.getVolatilityC() * volatility * volatility;
+    private double calToVolatilityMultiplier(AppConfig.SymbolItem symbolConfig, double volatility) {
+        return 1 + symbolConfig.getVolatilityA() + symbolConfig.getVolatilityB() * volatility + symbolConfig.getVolatilityC() * volatility * volatility;
     }
 
-    private TradeActionType processPriceBar(Row row, double volatilityMultiplier, int position, String benchmarkColumn) {
+    private TradeActionType processPriceBar(AppConfig.SymbolItem symbolConfig, Row row, double volatilityMultiplier, int position, String benchmarkColumn) {
+        String symbol = symbolConfig.getSymbol();
+        Map<String, Object> actionMap = symbolActionMap.get(symbol);
+        TradeActionType lastAction = (TradeActionType) actionMap.get("lastAction");
+        LocalDateTime lastBuyDatetime = (LocalDateTime) actionMap.get("lastBuyDatetime");
+        LocalDateTime lastSellDatetime = (LocalDateTime) actionMap.get("lastSellDatetime");
+
+
         TradeActionType action = TradeActionType.NO_ACTION;
         LocalTime portfolioCloseTime = LocalTime.of(15, 50, 0);
         LocalTime marketOpenTime = LocalTime.of(9, 30, 0);
@@ -62,8 +97,9 @@ public class Sma implements Strategy {
         LocalDateTime datetime = zonedDateTime.toLocalDateTime();
         LocalTime time = datetime.toLocalTime();
 
+
         // System.out.println(portfolioPositions);
-        double[] signalMargins = calculateSignalMargin(volatilityMultiplier, position);
+        double[] signalMargins = calculateSignalMargin(symbolConfig, volatilityMultiplier, position);
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
 
@@ -84,14 +120,14 @@ public class Sma implements Strategy {
 
             if (vwap <= sma12 * (1 - buySignalMargin)
                     && (lastAction == TradeActionType.NO_ACTION || lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= config.getMinIntervalBetweenSignal())
-                    && ((position < config.getMaxPortfolioPositions() && config.isHardLimit()) || !config.isHardLimit())) {
+                    && ((position < symbolConfig.getMaxPortfolioPositions() && config.isHardLimit()) || !config.isHardLimit())) {
                 action = TradeActionType.BUY;
                 lastAction = TradeActionType.BUY;
                 lastBuyDatetime = datetime;
 
             } else if (vwap >= sma12 * (1 + sellSignalMargin)
                     && (lastAction == TradeActionType.NO_ACTION || lastAction.equals(TradeActionType.BUY) || sellIntervalSeconds >= config.getMinIntervalBetweenSignal())
-                    && ((position > (-config.getMaxPortfolioPositions()) && config.isHardLimit()) || config.isHardLimit())) {
+                    && ((position > (-symbolConfig.getMaxPortfolioPositions()) && config.isHardLimit()) || config.isHardLimit())) {
                 action = TradeActionType.SELL;
                 lastAction = TradeActionType.SELL;
                 lastSellDatetime = datetime;
@@ -101,13 +137,17 @@ public class Sma implements Strategy {
             lastBuyDatetime = null;
             lastSellDatetime = null;
         }
+        actionMap.put("lastAction", lastAction);
+        actionMap.put("lastBuyDatetime", lastBuyDatetime);
+        actionMap.put("lastSellDatetime", lastSellDatetime);
+        symbolActionMap.put(symbol, actionMap);
         return action;
     }
 
-    public double[] calculateSignalMargin(double volatilityMultiplier, int position) {
-        float signalMargin = config.getSignalMargin();
-        int maxPortfolioPositions = config.getMaxPortfolioPositions();
-        float positionSignalMarginOffset = config.getPositionSignalMarginOffset();
+    public double[] calculateSignalMargin(AppConfig.SymbolItem symbolConf, double volatilityMultiplier, int position) {
+        float signalMargin = symbolConf.getSignalMargin();
+        int maxPortfolioPositions = symbolConf.getMaxPortfolioPositions();
+        float positionSignalMarginOffset = symbolConf.getPositionSignalMarginOffset();
 
         float positionOffset = position / maxPortfolioPositions;
 

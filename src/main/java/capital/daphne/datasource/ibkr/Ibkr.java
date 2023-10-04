@@ -9,6 +9,7 @@ import com.ib.client.Contract;
 import com.ib.client.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
 import java.util.ArrayList;
@@ -111,11 +112,15 @@ public class Ibkr {
             if (side == Strategy.TradeActionType.NO_ACTION) {
                 return signalList;
             }
+
+            Row latestBar = df.row(df.rowCount() - 1);
             signal.setValid(true);
             signal.setSymbol(symbol);
             signal.setSide(side);
             signal.setBidPrice(bidPrice);
             signal.setAskPrice(askPrice);
+            signal.setWap(latestBar.getDouble("vwap"));
+            signal.setQuantity(symbolItem.getOrderSize());
             signalList.add(signal);
         }
         return signalList;

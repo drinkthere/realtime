@@ -16,14 +16,7 @@ public class AppConfig {
     private int minDurationAfterSignal;
     private int minIntervalBetweenSignal;
     private boolean hardLimit;
-    private int maxPortfolioPositions;
-    private float positionSignalMarginOffset;
-    private float signalMargin;
-    private float volatilityA;
-    private float volatilityB;
-    private float volatilityC;
 
-    private int orderSize;
 
     @Data
     public static class Http {
@@ -55,5 +48,12 @@ public class AppConfig {
         private String primaryExchange;
         private String currency;
         private String strategy;
+        private int maxPortfolioPositions;
+        private float positionSignalMarginOffset;
+        private float signalMargin;
+        private float volatilityA;
+        private float volatilityB;
+        private float volatilityC;
+        private int orderSize;
     }
 }

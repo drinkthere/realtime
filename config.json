@@ -16,33 +16,25 @@
     "port": 7497,
     "clientId": 5
   },
-  "apiKey": "X0UI8vtT0aWfqFalQb0_vFgE42pLf7ro",
   "numStatsBars": 12,
   "hardLimit": true,
   "portfolioRequiredToClose": false,
-  "maxPortfolioPositions": 500,
-  "positionSignalMarginOffset": -0.00002,
   "minDurationAfterSignal": 5,
   "minIntervalBetweenSignal": 15,
-  "signalMargin": 0.0005,
-  "volatilityA": -0.1,
-  "volatilityB": 20,
-  "volatilityC": 300,
-  "orderSize": 100,
   "symbols": [
     {
       "symbol": "SPY",
       "exchange": "SMART",
       "primaryExchange": "ARCA",
       "currency": "USD",
-      "strategy": "SMA"
-    },
-    {
-      "symbol": "QQQ",
-      "exchange": "SMART",
-      "primaryExchange": "ARCA",
-      "currency": "USD",
-      "strategy": "SMA"
+      "strategy": "SMA",
+      "maxPortfolioPositions": 500,
+      "positionSignalMarginOffset": -0.00002,
+      "signalMargin": 0.0005,
+      "volatilityA": -0.1,
+      "volatilityB": 20,
+      "volatilityC": 300,
+      "orderSize": 100
     }
   ]
 }

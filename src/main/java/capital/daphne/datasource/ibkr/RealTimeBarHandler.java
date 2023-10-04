@@ -60,6 +60,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
 
     @Override
     synchronized public void realtimeBar(int reqId, Bar bar) {
+        logger.info(bar.toString());
         // 数据校验
         if (bar.time() <= 0 || bar.volume().compareTo(Decimal.ZERO) <= 0 || bar.volume().compareTo(Decimal.ZERO) <= 0) {
             logger.warn("bar data is invalid: " + bar.toString());

@@ -85,11 +85,11 @@ public class Main {
                                     tradeSignal.setUuid(uuidString);
                                     if (tradeSignal.getSide().equals(Strategy.TradeActionType.BUY)) {
                                         // buy时， price设置成ask price
-                                        tradeSignal.setQuantity(appConfig.getOrderSize());
+                                        tradeSignal.setQuantity(tradeSignal.getQuantity());
                                         tradeSignal.setPrice(tradeSignal.getAskPrice());
                                     } else if (tradeSignal.getSide().equals(Strategy.TradeActionType.SELL)) {
                                         // sell时， price设置成bid price
-                                        tradeSignal.setQuantity(0 - appConfig.getOrderSize());
+                                        tradeSignal.setQuantity(0 - tradeSignal.getQuantity());
                                         tradeSignal.setPrice(tradeSignal.getBidPrice());
                                     }
 
@@ -157,6 +157,7 @@ public class Main {
             requestData.put("uuid", signal.getUuid());
             requestData.put("symbol", signal.getSymbol());
             requestData.put("price", signal.getPrice());
+            requestData.put("wap", signal.getWap());
             requestData.put("quantity", signal.getQuantity());
 
             // 获取 JSON 字符串形式的请求体

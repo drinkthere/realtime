@@ -12,6 +12,7 @@ public class Signal {
     private double bidPrice;
     private double askPrice;
     private double price;
+    private double wap;
     private Strategy.TradeActionType side;
     private int quantity;
 }
