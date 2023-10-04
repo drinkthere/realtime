@@ -50,7 +50,6 @@ public class Main {
         );
 
         logger.info("初始化数据源服务：ibkr");
-
         Ibkr ibkr = new Ibkr(appConfig, db);
         ibkr.connectTWS();
 

@@ -16,11 +16,6 @@
     "port": 7497,
     "clientId": 5
   },
-  "numStatsBars": 12,
-  "hardLimit": true,
-  "portfolioRequiredToClose": false,
-  "minDurationAfterSignal": 5,
-  "minIntervalBetweenSignal": 15,
   "symbols": [
     {
       "symbol": "SPY",
@@ -34,7 +29,12 @@
       "volatilityA": -0.1,
       "volatilityB": 20,
       "volatilityC": 300,
-      "orderSize": 100
+      "orderSize": 100,
+      "numStatsBars": 12,
+      "hardLimit": true,
+      "portfolioRequiredToClose": false,
+      "minDurationAfterSignal": 5,
+      "minIntervalBetweenSignal": 15
     }
   ]
 }

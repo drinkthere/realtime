@@ -9,13 +9,7 @@ public class AppConfig {
     private Http http;
     private Database database;
     private Tws tws;
-    private List<SymbolItem> symbols;
-    private String strategy;
-    private int numStatsBars;
-    private boolean portfolioRequiredToClose;
-    private int minDurationAfterSignal;
-    private int minIntervalBetweenSignal;
-    private boolean hardLimit;
+    private List<SymbolConfig> symbols;
 
 
     @Data
@@ -42,7 +36,7 @@ public class AppConfig {
     }
 
     @Data
-    public static class SymbolItem {
+    public static class SymbolConfig {
         private String symbol;
         private String exchange;
         private String primaryExchange;
@@ -55,5 +49,10 @@ public class AppConfig {
         private float volatilityB;
         private float volatilityC;
         private int orderSize;
+        private int numStatsBars;
+        private boolean portfolioRequiredToClose;
+        private int minDurationAfterSignal;
+        private int minIntervalBetweenSignal;
+        private boolean hardLimit;
     }
 }

@@ -1,5 +1,6 @@
 package capital.daphne.datasource.ibkr;
 
+import capital.daphne.AppConfig;
 import capital.daphne.Db;
 import com.ib.client.Decimal;
 import com.ib.controller.Bar;
@@ -31,31 +32,32 @@ class BarInfo {
 public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
     private static final Logger logger = LoggerFactory.getLogger(RealTimeBarHandler.class);
 
-    private Map<String, List<BarInfo>> symbolToBarListMap;
+    private Map<String, List<BarInfo>> sblBarListMap;
 
     private Db db;
 
-    private int minNumOfBars;
+    private Map<String, double[]> sblWapMap;
 
-    private Map<String, double[]> symbolWapMap;
+    private Map<String, Integer> sblReqIdMap;
 
-    private Map<String, Integer> barSblReqIdMap;
+    private Map<String, Integer> sblMinBarNumMap;
 
-    public RealTimeBarHandler(Db db, List<String> symbols, int minNumOfBars) {
+    public RealTimeBarHandler(Db db, List<AppConfig.SymbolConfig> symbolsConfig) {
         this.db = db;
-        this.minNumOfBars = minNumOfBars;
-        symbolToBarListMap = new HashMap<>();
-        for (String symbol : symbols) {
-            symbolToBarListMap.put(symbol, new ArrayList<>());
+        sblBarListMap = new HashMap<>();
+        sblMinBarNumMap = new HashMap<>();
+        for (AppConfig.SymbolConfig sc : symbolsConfig) {
+            sblBarListMap.put(sc.getSymbol(), new ArrayList<>());
+            sblMinBarNumMap.put(sc.getSymbol(), sc.getNumStatsBars() + 1);
         }
     }
 
-    public void initWap(Map<String, double[]> symbolWapMap) {
-        this.symbolWapMap = symbolWapMap;
+    public void initWap(Map<String, double[]> sblWapMap) {
+        this.sblWapMap = sblWapMap;
     }
 
-    public void setBarSblReqIdMap(Map<String, Integer> barSblReqIdMap) {
-        this.barSblReqIdMap = barSblReqIdMap;
+    public void setSblReqIdMap(Map<String, Integer> sblReqIdMap) {
+        this.sblReqIdMap = sblReqIdMap;
     }
 
     @Override
@@ -70,11 +72,11 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         boolean dataUpdate = false;
 
         double wap = Double.parseDouble(bar.wap().toString());
-        String symbol = barSblReqIdMap.entrySet().stream()
+        String symbol = sblReqIdMap.entrySet().stream()
                 .filter(entry -> entry.getValue() == reqId)
                 .map(Map.Entry::getKey)
                 .collect(Collectors.joining(", "));
-        double[] wapArr = symbolWapMap.get(symbol);
+        double[] wapArr = sblWapMap.get(symbol);
 
         //wapArr[0 -> prevMaxWap, 1 -> prevMinWap, 2 -> currMaxWap, 3 -> currMinWap]
         double currMaxWap = wapArr[2];
@@ -89,7 +91,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
         wapArr[2] = currMaxWap;
         wapArr[3] = currMinWap;
-        symbolWapMap.put(symbol, wapArr);
+        sblWapMap.put(symbol, wapArr);
 
         if (dataUpdate) {
             // 更新当前交易日的max_wap和min_wap
@@ -97,8 +99,8 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
 
         BarInfo barInfo = new BarInfo();
-        List<BarInfo> barList = symbolToBarListMap.get(symbol);
-//        logger.info(symbolToBarListMap.toString());
+        List<BarInfo> barList = sblBarListMap.get(symbol);
+//        logger.info(sblBarListMap.toString());
 //        logger.info(reqId + " " + symbol + " " + barList);
         try {
             String date = parseTime(bar.time());
@@ -113,19 +115,21 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
 
         // 只保留2倍minNumOfBar的bar数据
-        int maxKeepNumOfBars = 2 * minNumOfBars;
+        int minBarNum = sblMinBarNumMap.get(symbol);
+        int maxKeepNumOfBars = 2 * minBarNum;
         if (barList.size() > maxKeepNumOfBars) {
             int elementsToRemove = barList.size() - maxKeepNumOfBars;
             barList.subList(0, elementsToRemove).clear();
         }
         //logger.info(reqId + " | " + symbol + " " + barList);
-        symbolToBarListMap.put(symbol, barList);
+        sblBarListMap.put(symbol, barList);
     }
 
     public Table getDataTable(String symbol) {
-        List<BarInfo> barList = symbolToBarListMap.get(symbol);
-        logger.debug("size=" + barList.size() + ", minNumOfBars=" + minNumOfBars);
-        if (barList.size() < minNumOfBars) {
+        int minBarNum = sblMinBarNumMap.get(symbol);
+        List<BarInfo> barList = sblBarListMap.get(symbol);
+        logger.debug("size=" + barList.size() + ", minNumOfBars=" + minBarNum);
+        if (barList.size() < minBarNum) {
             return null;
         }
 

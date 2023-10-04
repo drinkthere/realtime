@@ -42,12 +42,12 @@ public class Db {
         }
     }
 
-    public Map<String, double[]> loadWapCache(List<AppConfig.SymbolItem> symbolList) {
+    public Map<String, double[]> loadWapCache(List<AppConfig.SymbolConfig> symbolList) {
         HashMap<String, double[]> symbolWapMap = new HashMap<>();
         try {
             Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
-            for (AppConfig.SymbolItem symbolItem : symbolList) {
-                String symbol = symbolItem.getSymbol();
+            for (AppConfig.SymbolConfig symbolConfig : symbolList) {
+                String symbol = symbolConfig.getSymbol();
                 double[] wapArr = loadSymbolWapCache(connection, symbol);
                 symbolWapMap.put(symbol, wapArr);
             }
