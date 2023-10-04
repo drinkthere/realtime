@@ -34,6 +34,7 @@ public class Sma implements Strategy {
         actionMap.put("lastBuyDatetime", null);
         actionMap.put("lastSellDatetime", null);
         symbolActionMap = new HashMap<>();
+        numStatsBarsMap = new HashMap<>();
         for (AppConfig.SymbolConfig sc : conf.getSymbols()) {
             symbolActionMap.put(sc.getSymbol(), actionMap);
             numStatsBarsMap.put(sc.getSymbol(), sc.getNumStatsBars());

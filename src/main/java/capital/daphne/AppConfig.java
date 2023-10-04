@@ -46,6 +46,9 @@ public class AppConfig {
     @Data
     public static class SymbolConfig {
         private String symbol;
+        private String secType;
+        private String lastTradeDateOrContractMonth;
+        private String multiplier;
         private String exchange;
         private String primaryExchange;
         private String currency;

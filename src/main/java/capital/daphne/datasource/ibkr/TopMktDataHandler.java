@@ -62,7 +62,7 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
                 // 将初始化后的 priceMap 放入 tickerReqIdSblMap
                 tickerReqIdSblMap.put(reqId, priceMap);
             }
-            logger.debug(String.format("reqId=%d, bidPrice=%f, askPrice=%f", reqId, priceMap.get("bidPrice"), priceMap.get("askPrice")));
+            logger.info(String.format("reqId=%d, bidPrice=%f, askPrice=%f", reqId, priceMap.get("bidPrice"), priceMap.get("askPrice")));
         }
         // todo maybe add bidSize and askSize later
     }

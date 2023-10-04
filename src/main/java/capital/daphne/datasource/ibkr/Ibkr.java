@@ -122,20 +122,27 @@ public class Ibkr {
     }
 
     private Contract genContract(String symbol) {
-        AppConfig.SymbolConfig symbolInfo = new AppConfig.SymbolConfig();
-        for (AppConfig.SymbolConfig symbolConfig : config.getSymbols()) {
-            if (symbolConfig.getSymbol().equals(symbol)) {
-                symbolInfo = symbolConfig;
+        AppConfig.SymbolConfig symbolConfig = new AppConfig.SymbolConfig();
+        for (AppConfig.SymbolConfig sc : config.getSymbols()) {
+            if (sc.getSymbol().equals(symbol)) {
+                symbolConfig = sc;
                 break;
             }
         }
 
         Contract contract = new Contract();
         contract.symbol(symbol); // 设置合约标的
-        contract.secType(Types.SecType.STK);
-        contract.exchange(symbolInfo.getExchange()); // 设置交易所
-        contract.primaryExch(symbolInfo.getPrimaryExchange());
-        contract.currency(symbolInfo.getCurrency()); // 设置货币
+
+        if (symbolConfig.getSecType().equals("Future")) {
+            contract.secType(Types.SecType.FUT);
+            contract.lastTradeDateOrContractMonth(symbolConfig.getLastTradeDateOrContractMonth());
+            contract.multiplier(symbolConfig.getMultiplier());
+        } else if (symbolConfig.getSecType().equals("Stock")) {
+            contract.secType(Types.SecType.STK);
+        }
+        contract.exchange(symbolConfig.getExchange()); // 设置交易所
+        contract.primaryExch(symbolConfig.getPrimaryExchange());
+        contract.currency(symbolConfig.getCurrency()); // 设置货币
         return contract;
     }
 
