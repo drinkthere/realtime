@@ -87,7 +87,7 @@ public class Sma implements Strategy {
         TradeActionType lastAction = (TradeActionType) actionMap.get("lastAction");
         LocalDateTime lastBuyDatetime = (LocalDateTime) actionMap.get("lastBuyDatetime");
         LocalDateTime lastSellDatetime = (LocalDateTime) actionMap.get("lastSellDatetime");
-
+        logger.info("start " + actionMap);
 
         TradeActionType action = TradeActionType.NO_ACTION;
         LocalTime portfolioCloseTime = LocalTime.of(15, 50, 0);
@@ -111,28 +111,28 @@ public class Sma implements Strategy {
         if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime)) {
             double vwap = row.getDouble("vwap");
 
-            double sma12 = row.getDouble(benchmarkColumn);
+            double sma = row.getDouble(benchmarkColumn);
             long buyIntervalSeconds = 0L;
-            if (lastAction != TradeActionType.NO_ACTION && lastBuyDatetime != null) {
+            if (!lastAction.equals(TradeActionType.NO_ACTION) && lastBuyDatetime != null) {
                 Duration buyDuration = Duration.between(lastBuyDatetime, datetime);
                 buyIntervalSeconds = buyDuration.getSeconds();
             }
             long sellIntervalSeconds = 0L;
-            if (lastAction != TradeActionType.NO_ACTION && lastSellDatetime != null) {
+            if (!lastAction.equals(TradeActionType.NO_ACTION) && lastSellDatetime != null) {
                 Duration sellDuration = Duration.between(lastSellDatetime, datetime);
                 sellIntervalSeconds = sellDuration.getSeconds();
             }
 
-            if (vwap <= sma12 * (1 - buySignalMargin)
-                    && (lastAction == TradeActionType.NO_ACTION || lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= symbolConfig.getMinIntervalBetweenSignal())
-                    && ((position < symbolConfig.getMaxPortfolioPositions() && symbolConfig.isHardLimit()) || !symbolConfig.isHardLimit())) {
+            if (vwap <= sma * (1 - buySignalMargin)
+                    && (lastAction.equals(TradeActionType.NO_ACTION) || lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= symbolConfig.getMinIntervalBetweenSignal())
+                    && (position < symbolConfig.getMaxPortfolioPositions() || !symbolConfig.isHardLimit())) {
                 action = TradeActionType.BUY;
                 lastAction = TradeActionType.BUY;
                 lastBuyDatetime = datetime;
 
-            } else if (vwap >= sma12 * (1 + sellSignalMargin)
-                    && (lastAction == TradeActionType.NO_ACTION || lastAction.equals(TradeActionType.BUY) || sellIntervalSeconds >= symbolConfig.getMinIntervalBetweenSignal())
-                    && ((position > (-symbolConfig.getMaxPortfolioPositions()) && symbolConfig.isHardLimit()) || symbolConfig.isHardLimit())) {
+            } else if (vwap >= sma * (1 + sellSignalMargin)
+                    && (lastAction.equals(TradeActionType.NO_ACTION) || lastAction.equals(TradeActionType.BUY) || sellIntervalSeconds >= symbolConfig.getMinIntervalBetweenSignal())
+                    && (position > (-symbolConfig.getMaxPortfolioPositions()) || !symbolConfig.isHardLimit())) {
                 action = TradeActionType.SELL;
                 lastAction = TradeActionType.SELL;
                 lastSellDatetime = datetime;
@@ -142,10 +142,13 @@ public class Sma implements Strategy {
             lastBuyDatetime = null;
             lastSellDatetime = null;
         }
+
         actionMap.put("lastAction", lastAction);
         actionMap.put("lastBuyDatetime", lastBuyDatetime);
         actionMap.put("lastSellDatetime", lastSellDatetime);
+        logger.info("finish " + actionMap);
         symbolActionMap.put(symbol, actionMap);
+
         return action;
     }
 

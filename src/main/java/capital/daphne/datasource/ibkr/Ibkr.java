@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 
 public class Ibkr {
@@ -33,9 +32,7 @@ public class Ibkr {
 
     private PositionHandler positionHandler;
 
-
-    private Map<String, Integer> barSblReqIdMap;
-
+    private Map<String, Strategy> strategyHandlerMap;
 
     public Ibkr(AppConfig appConfig, Db dbHandler) {
         ConnectHandler connectHandler = new ConnectHandler();
@@ -44,13 +41,12 @@ public class Ibkr {
         db = dbHandler;
         topMktDataHandler = new TopMktDataHandler();
         positionHandler = new PositionHandler();
-
-        List<String> symbols = config.getSymbols().stream()
-                .map(AppConfig.SymbolConfig::getSymbol)
-                .collect(Collectors.toList());
         realTimeBarHandler = new RealTimeBarHandler(db, config.getSymbols());
-        barSblReqIdMap = new HashMap<>();
 
+        for (AppConfig.SymbolConfig sc : config.getSymbols()) {
+            Strategy strategyHandler = initStrategyHandler(sc.getStrategy());
+            strategyHandlerMap.put(sc.getSymbol(), strategyHandler);
+        }
     }
 
     public void connectTWS() {
@@ -95,16 +91,15 @@ public class Ibkr {
             if (df == null) {
                 return signalList;
             }
-            // logger.info(symbol + "," + df.toString());
 
             // 获取当前bid和ask信息
             double bidPrice = topMktDataHandler.getBidPrice(symbol);
             double askPrice = topMktDataHandler.getAskPrice(symbol);
-
+            logger.debug(bidPrice + " " + askPrice);
             // 判断是否要下单
-            Strategy strategyHandler = initStrategyHandler(symbolConfig.getStrategy());
+            Strategy strategyHandler = strategyHandlerMap.get(symbol);
             Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, df, position);
-            if (side == Strategy.TradeActionType.NO_ACTION) {
+            if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
                 return signalList;
             }
 
@@ -156,6 +151,7 @@ public class Ibkr {
 
     private void sub5sBars() {
         try {
+            Map<String, Integer> barSblReqIdMap = new HashMap<>();
             for (AppConfig.SymbolConfig symbolConfig : config.getSymbols()) {
                 String symbol = symbolConfig.getSymbol();
                 Contract contract = genContract(symbol);

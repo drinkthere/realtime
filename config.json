@@ -1,7 +1,7 @@
 {
   "http": {
     "host": "127.0.0.1",
-    "port": 5000,
+    "port": 5500,
     "path": "trade"
   },
   "database": {
@@ -31,40 +31,18 @@
       "primaryExchange": "ARCA",
       "currency": "USD",
       "strategy": "SMA",
+      "portfolioRequiredToClose": false,
       "maxPortfolioPositions": 500,
-      "positionSignalMarginOffset": -0.00002,
-      "signalMargin": 0.0005,
-      "volatilityA": -0.1,
-      "volatilityB": 20,
-      "volatilityC": 300,
+      "positionSignalMarginOffset": -0.00001,
+      "minDurationAfterSignal": 5,
       "orderSize": 100,
-      "numStatsBars": 12,
-      "hardLimit": true,
-      "portfolioRequiredToClose": false,
-      "minDurationAfterSignal": 5,
-      "minIntervalBetweenSignal": 15
-    },
-    {
-      "symbol": "ES",
-      "secType": "Future",
-      "lastTradeDateOrContractMonth": "20231215",
-      "multiplier": "50",
-      "exchange": "SMART",
-      "primaryExchange": "CME",
-      "currency": "USD",
-      "strategy": "SMA",
-      "maxPortfolioPositions": 5,
-      "positionSignalMarginOffset": -0.00002,
+      "minIntervalBetweenSignal": 72,
+      "numStatsBars": 18,
       "signalMargin": 0.0005,
-      "volatilityA": -0.1,
-      "volatilityB": 20,
-      "volatilityC": 300,
-      "orderSize": 1,
-      "numStatsBars": 12,
-      "hardLimit": true,
-      "portfolioRequiredToClose": false,
-      "minDurationAfterSignal": 5,
-      "minIntervalBetweenSignal": 15
+      "volatilityA": 0,
+      "volatilityB": 60,
+      "volatilityC": -100,
+      "hardLimit": true
     }
   ]
 }

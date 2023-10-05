@@ -62,7 +62,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
 
     @Override
     synchronized public void realtimeBar(int reqId, Bar bar) {
-        logger.info(bar.toString());
+        logger.debug(bar.toString());
         // 数据校验
         if (bar.time() <= 0 || bar.volume().compareTo(Decimal.ZERO) <= 0 || bar.volume().compareTo(Decimal.ZERO) <= 0) {
             logger.warn("bar data is invalid: " + bar.toString());
@@ -73,7 +73,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
 
         double wap = Double.parseDouble(bar.wap().toString());
         String symbol = sblReqIdMap.entrySet().stream()
-                .filter(entry -> entry.getValue() == reqId)
+                .filter(entry -> entry.getValue().equals(reqId))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.joining(", "));
         double[] wapArr = sblWapMap.get(symbol);

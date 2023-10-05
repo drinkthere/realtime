@@ -29,40 +29,46 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
 
     @Override
     public void tickPrice(int reqId, TickType tickType, double price, TickAttrib tickAttrib) {
+        logger.debug(reqId + " " + tickType + " " + price + " " + tickAttrib);
         String symbol = reqIdSblMap.get(reqId);
         if (tickType.equals(TickType.BID) || tickType.equals(TickType.ASK)) {
-            Map<String, Double> priceMap;
-            if (tickerReqIdSblMap.containsKey(reqId)) {
-                // 获取 reqId 对应的 Map<String, Double>
-                priceMap = tickerReqIdSblMap.get(reqId);
+            try {
+                Map<String, Double> priceMap;
+                if (tickerReqIdSblMap.containsKey(reqId)) {
+                    // 获取 reqId 对应的 Map<String, Double>
+                    priceMap = tickerReqIdSblMap.get(reqId);
 
-                // 根据 tickType 更新对应的价格
-                if (tickType.equals(TickType.BID)) {
-                    priceMap.put("bidPrice", price);
-                    updateTickerInRedis(symbol, TickType.BID, price);
-                } else if (tickType.equals(TickType.ASK)) {
-                    priceMap.put("askPrice", price);
-                    updateTickerInRedis(symbol, TickType.ASK, price);
-                }
-            } else {
-                // 如果 reqId 不存在于 tickerReqIdSblMap 中，进行初始化
-                priceMap = new HashMap<>();
-                if (tickType.equals(TickType.BID)) {
-                    priceMap.put("bidPrice", price);
-                    priceMap.put("askPrice", 0.0); // 初始化 askPrice
-                    updateTickerInRedis(symbol, TickType.BID, price);
-                    updateTickerInRedis(symbol, TickType.ASK, 0.0);
-                } else if (tickType.equals(TickType.ASK)) {
-                    priceMap.put("bidPrice", 0.0); // 初始化 bidPrice
-                    priceMap.put("askPrice", price);
-                    updateTickerInRedis(symbol, TickType.BID, 0.0);
-                    updateTickerInRedis(symbol, TickType.ASK, price);
-                }
+                    // 根据 tickType 更新对应的价格
+                    if (tickType.equals(TickType.BID)) {
+                        priceMap.put("bidPrice", price);
+                        updateTickerInRedis(symbol, TickType.BID, price);
+                    } else if (tickType.equals(TickType.ASK)) {
+                        priceMap.put("askPrice", price);
+                        updateTickerInRedis(symbol, TickType.ASK, price);
+                    }
+                } else {
+                    // 如果 reqId 不存在于 tickerReqIdSblMap 中，进行初始化
+                    priceMap = new HashMap<>();
+                    if (tickType.equals(TickType.BID)) {
+                        priceMap.put("bidPrice", price);
+                        priceMap.put("askPrice", 0.0); // 初始化 askPrice
+                        updateTickerInRedis(symbol, TickType.BID, price);
+                        updateTickerInRedis(symbol, TickType.ASK, 0.0);
+                    } else if (tickType.equals(TickType.ASK)) {
+                        priceMap.put("bidPrice", 0.0); // 初始化 bidPrice
+                        priceMap.put("askPrice", price);
+                        updateTickerInRedis(symbol, TickType.BID, 0.0);
+                        updateTickerInRedis(symbol, TickType.ASK, price);
+                    }
 
-                // 将初始化后的 priceMap 放入 tickerReqIdSblMap
-                tickerReqIdSblMap.put(reqId, priceMap);
+                    // 将初始化后的 priceMap 放入 tickerReqIdSblMap
+                    tickerReqIdSblMap.put(reqId, priceMap);
+                }
+                logger.debug(String.format("reqId=%d, bidPrice=%f, askPrice=%f", reqId, priceMap.get("bidPrice"), priceMap.get("askPrice")));
+            } catch (Exception e) {
+                logger.error(e.getMessage());
             }
-            logger.info(String.format("reqId=%d, bidPrice=%f, askPrice=%f", reqId, priceMap.get("bidPrice"), priceMap.get("askPrice")));
+
         }
         // todo maybe add bidSize and askSize later
     }
