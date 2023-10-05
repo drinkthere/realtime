@@ -43,6 +43,7 @@ public class Ibkr {
         positionHandler = new PositionHandler();
         realTimeBarHandler = new RealTimeBarHandler(db, config.getSymbols());
 
+        strategyHandlerMap = new HashMap<>();
         for (AppConfig.SymbolConfig sc : config.getSymbols()) {
             Strategy strategyHandler = initStrategyHandler(sc.getStrategy());
             strategyHandlerMap.put(sc.getSymbol(), strategyHandler);
