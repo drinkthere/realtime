@@ -23,10 +23,10 @@
   },
   "symbols": [
     {
-      "symbol": "MES",
+      "symbol": "ES",
       "secType": "Future",
       "lastTradeDateOrContractMonth": "20231215",
-      "multiplier": "5",
+      "multiplier": "50",
       "exchange": "CME",
       "primaryExchange": "CME",
       "currency": "USD",

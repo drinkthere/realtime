@@ -22,6 +22,10 @@ public class PositionHandler implements IbkrController.IPositionHandler {
         try {
             int position = Integer.parseInt((pos.toString()));
             positionMap.put(symbol, position);
+            if (symbol.equals("ES")) {
+                //兼容实用ES数据下单MES，后续去掉
+                positionMap.put("MES", position);
+            }
             logger.debug(String.format("account=%s, contract=%s, position=%d, avgCost=%f", account, contract.toString(), position, avgCost));
         } catch (NumberFormatException e) {
             logger.error("format position to int error: " + e.getMessage());
@@ -31,6 +35,11 @@ public class PositionHandler implements IbkrController.IPositionHandler {
     public int getSymbolPosition(String symbol) {
         Integer position = positionMap.get(symbol);
         if (position == null) {
+            if (symbol.equals("ES")) {
+                //兼容实用ES数据下单MES，后续去掉
+                position = positionMap.get("MES");
+                return position == null ? 0 : position;
+            }
             return 0;
         } else {
             return position;

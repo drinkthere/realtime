@@ -43,7 +43,7 @@ public class Ibkr {
         db = dbHandler;
         topMktDataHandler = new TopMktDataHandler();
         positionHandler = new PositionHandler();
-        realTimeBarHandler = new RealTimeBarHandler(db, config.getSymbols());
+        realTimeBarHandler = new RealTimeBarHandler(db, config.getSymbols(), topMktDataHandler);
 
         strategyHandlerMap = new HashMap<>();
         for (AppConfig.SymbolConfig sc : config.getSymbols()) {
@@ -104,6 +104,7 @@ public class Ibkr {
                 Strategy strategyHandler = strategyHandlerMap.get(symbol);
                 Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, df, position);
                 if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
+                    logger.info("no action signal");
                     return signalList;
                 }
 

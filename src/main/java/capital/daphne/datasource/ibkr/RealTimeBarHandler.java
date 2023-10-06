@@ -31,18 +31,16 @@ class BarInfo {
 
 public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
     private static final Logger logger = LoggerFactory.getLogger(RealTimeBarHandler.class);
-
+    private static final int maxWrongWapNum = 2;
     private Map<String, List<BarInfo>> sblBarListMap;
-
     private Db db;
-
     private Map<String, double[]> sblWapMap;
-
     private Map<String, Integer> sblReqIdMap;
-
     private Map<String, Integer> sblMinBarNumMap;
+    private TopMktDataHandler topMktDataHandler;
+    private int wrongWapNum;
 
-    public RealTimeBarHandler(Db db, List<AppConfig.SymbolConfig> symbolsConfig) {
+    public RealTimeBarHandler(Db db, List<AppConfig.SymbolConfig> symbolsConfig, TopMktDataHandler topMktDataHandler) {
         this.db = db;
         sblBarListMap = new HashMap<>();
         sblMinBarNumMap = new HashMap<>();
@@ -50,6 +48,8 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
             sblBarListMap.put(sc.getSymbol(), new ArrayList<>());
             sblMinBarNumMap.put(sc.getSymbol(), sc.getNumStatsBars() + 1);
         }
+        this.topMktDataHandler = topMktDataHandler;
+        wrongWapNum = 0;
     }
 
     public void initWap(Map<String, double[]> sblWapMap) {
@@ -62,20 +62,38 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
 
     @Override
     synchronized public void realtimeBar(int reqId, Bar bar) {
-        logger.debug(bar.toString());
-        // 数据校验
-        if (bar.time() <= 0 || bar.volume().compareTo(Decimal.ZERO) <= 0 || bar.volume().compareTo(Decimal.ZERO) <= 0) {
-            logger.warn("bar data is invalid: " + bar.toString());
+        logger.debug("o:" + bar.open() + "|h:" + bar.high() + "|l:" + bar.low() + "|c:" + bar.close() + "|vw:" + bar.wap() + "|v:" + bar.volume());
+        if (bar.time() <= 0) {
+            logger.warn(String.format("bar data is invalid: time=%s", bar.time()));
             return;
         }
 
-        boolean dataUpdate = false;
-
-        double wap = Double.parseDouble(bar.wap().toString());
         String symbol = sblReqIdMap.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(reqId))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.joining(", "));
+
+        double vwap = Double.parseDouble(bar.wap().toString());
+        double wap;
+        if (bar.volume().compareTo(Decimal.ZERO) <= 0) {
+            wap = (bar.open() + bar.high() + bar.low() + bar.close()) / 4;
+            if (wap / vwap >= 1.001 || wap / vwap <= 0.999) {
+                logger.warn(String.format("bar data is invalid: volume=0, vwap=%s, wap=%s, exceed:0.1%%", vwap, wap));
+                wrongWapNum++;
+                // 如果超过最大连续出错的数量，就清空所有的bar数据，重新计算
+                if (wrongWapNum >= maxWrongWapNum) {
+                    logger.warn("vwap exceed 0.1% beyond " + maxWrongWapNum + " times");
+                    clearBarList(symbol);
+                }
+                return;
+            }
+        } else {
+            wap = vwap;
+        }
+        // 走到这里，说明wap没问题，重置wrongWapNum
+        wrongWapNum = 0;
+        logger.debug("o:" + bar.open() + "|h:" + bar.high() + "|l:" + bar.low() + "|c:" + bar.close() + "|vw:" + vwap + "|cw:" + wap + "|v:" + bar.volume());
+        boolean dataUpdate = false;
         double[] wapArr = sblWapMap.get(symbol);
 
         //wapArr[0 -> prevMaxWap, 1 -> prevMinWap, 2 -> currMaxWap, 3 -> currMinWap]
@@ -125,7 +143,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         sblBarListMap.put(symbol, barList);
     }
 
-    public Table getDataTable(String symbol) {
+    synchronized public Table getDataTable(String symbol) {
         int minBarNum = sblMinBarNumMap.get(symbol);
         List<BarInfo> barList = sblBarListMap.get(symbol);
         logger.debug("size=" + barList.size() + ", minNumOfBars=" + minBarNum);
@@ -171,5 +189,11 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         double minWap = Math.min(prevMinWap, currMinWap);
         minWap = minWap == 0 ? wap : minWap;
         return (maxWap - minWap) / minWap;
+    }
+
+    synchronized private void clearBarList(String symbol) {
+        List<BarInfo> barList = sblBarListMap.get(symbol);
+        barList.clear();
+        sblBarListMap.put(symbol, barList);
     }
 }

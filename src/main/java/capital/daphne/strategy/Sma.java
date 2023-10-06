@@ -87,7 +87,6 @@ public class Sma implements Strategy {
         TradeActionType lastAction = (TradeActionType) actionMap.get("lastAction");
         LocalDateTime lastBuyDatetime = (LocalDateTime) actionMap.get("lastBuyDatetime");
         LocalDateTime lastSellDatetime = (LocalDateTime) actionMap.get("lastSellDatetime");
-        logger.info("start " + actionMap);
 
         TradeActionType action = TradeActionType.NO_ACTION;
         LocalTime portfolioCloseTime = LocalTime.of(15, 50, 0);
@@ -146,7 +145,6 @@ public class Sma implements Strategy {
         actionMap.put("lastAction", lastAction);
         actionMap.put("lastBuyDatetime", lastBuyDatetime);
         actionMap.put("lastSellDatetime", lastSellDatetime);
-        logger.info("finish " + actionMap);
         symbolActionMap.put(symbol, actionMap);
 
         return action;

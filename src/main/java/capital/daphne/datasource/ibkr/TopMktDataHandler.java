@@ -21,10 +21,14 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
 
     private Map<Integer, Map<String, Double>> tickerReqIdSblMap;
 
+    // 用来计算twap
+    private Map<String, Double> twapMap;
+
     public TopMktDataHandler() {
         tickerReqIdSblMap = new HashMap<>();
         reqIdSblMap = new HashMap<>();
         sblReqIdMap = new HashMap<>();
+        twapMap = new HashMap<>();
     }
 
     @Override
@@ -64,6 +68,7 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
                     // 将初始化后的 priceMap 放入 tickerReqIdSblMap
                     tickerReqIdSblMap.put(reqId, priceMap);
                 }
+                // updateTwap(reqId, priceMap);
                 logger.debug(String.format("reqId=%d, bidPrice=%f, askPrice=%f", reqId, priceMap.get("bidPrice"), priceMap.get("askPrice")));
             } catch (Exception e) {
                 logger.error(e.getMessage());
@@ -78,12 +83,36 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
         try (Jedis jedis = jedisPool.getResource()) {
             // 更新ticker信息，设置10s过期
             String key = symbol + "." + type;
-            jedis.set(key, String.valueOf(price));
+            String val = String.valueOf(price);
+            jedis.set(key, val);
             long timestamp = System.currentTimeMillis() + 10000;
             jedis.expireAt(key, timestamp);
+
+            if (symbol.equals("ES")) {
+                // 为了兼容用ES的数据下MES的单，这里多写一组价格
+                key = "MES." + type;
+                jedis.set(key, val);
+                jedis.expireAt(key, timestamp);
+            }
         } catch (Exception e) {
             logger.error("Get Jedis resource failed, error:" + e.getMessage());
         }
+    }
+
+    private void updateTwap(int reqId, Map<String, Double> priceMap) {
+        String symbol = reqIdSblMap.get(reqId);
+        Double bidPrice = priceMap.get("bidPrice");
+        Double askPrice = priceMap.get("askPrice");
+        if (bidPrice <= 0.0 || askPrice <= 0.0) {
+            return;
+        }
+        Double twap = (bidPrice + askPrice) / 2;
+        twapMap.put(symbol, twap);
+    }
+
+    public double getTwap(String symbol) {
+        Double twap = twapMap.get(symbol);
+        return (twap == null) ? 0.0 : twap;
     }
 
     public void bindReqIdSymbol(String symbol, int reqId) {
