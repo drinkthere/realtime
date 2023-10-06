@@ -3,7 +3,6 @@ package capital.daphne;
 import capital.daphne.datasource.Signal;
 import capital.daphne.datasource.ibkr.Ibkr;
 import capital.daphne.strategy.Strategy;
-import capital.daphne.utils.Utils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -74,49 +73,44 @@ public class Main {
                 long ssecond = (stime / 1000) % 60;
                 // 为了确保在收到回调消息后再处理，在1s、6s、11s.... 做处理
                 if (ssecond % 5 == 1) {
-                    // 判断是否是开盘时间
-                    if (Utils.isMarketOpen()) {
-                        List<Signal> signalList = ibkr.getTradeSignals();
-                        if (signalList.size() > 0) {
-                            for (Signal tradeSignal : signalList) {
-                                logger.info(String.format(
-                                        "http://%s:%d/%s",
-                                        appConfig.getHttp().getHost(),
-                                        appConfig.getHttp().getPort(),
-                                        appConfig.getHttp().getPath()
-                                ));
-                                if (tradeSignal.isValid()) {
-                                    UUID uuid = UUID.randomUUID();
-                                    String uuidString = uuid.toString();
-                                    tradeSignal.setUuid(uuidString);
-                                    if (tradeSignal.getSide().equals(Strategy.TradeActionType.BUY)) {
-                                        // buy时， price设置成ask price
-                                        tradeSignal.setQuantity(tradeSignal.getQuantity());
-                                        tradeSignal.setPrice(tradeSignal.getAskPrice());
-                                    } else if (tradeSignal.getSide().equals(Strategy.TradeActionType.SELL)) {
-                                        // sell时， price设置成bid price
-                                        tradeSignal.setQuantity(0 - tradeSignal.getQuantity());
-                                        tradeSignal.setPrice(tradeSignal.getBidPrice());
-                                    }
-
-                                    // 记录下单信息
-                                    db.addSignal(tradeSignal);
-
-                                    // 调用下单服务下单。
-                                    sendSignal(
-                                            String.format(
-                                                    "http://%s:%d/%s",
-                                                    appConfig.getHttp().getHost(),
-                                                    appConfig.getHttp().getPort(),
-                                                    appConfig.getHttp().getPath()
-                                            ),
-                                            tradeSignal
-                                    );
+                    List<Signal> signalList = ibkr.getTradeSignals();
+                    if (signalList.size() > 0) {
+                        for (Signal tradeSignal : signalList) {
+                            logger.info(String.format(
+                                    "http://%s:%d/%s",
+                                    appConfig.getHttp().getHost(),
+                                    appConfig.getHttp().getPort(),
+                                    appConfig.getHttp().getPath()
+                            ));
+                            if (tradeSignal.isValid()) {
+                                UUID uuid = UUID.randomUUID();
+                                String uuidString = uuid.toString();
+                                tradeSignal.setUuid(uuidString);
+                                if (tradeSignal.getSide().equals(Strategy.TradeActionType.BUY)) {
+                                    // buy时， price设置成ask price
+                                    tradeSignal.setQuantity(tradeSignal.getQuantity());
+                                    tradeSignal.setPrice(tradeSignal.getAskPrice());
+                                } else if (tradeSignal.getSide().equals(Strategy.TradeActionType.SELL)) {
+                                    // sell时， price设置成bid price
+                                    tradeSignal.setQuantity(0 - tradeSignal.getQuantity());
+                                    tradeSignal.setPrice(tradeSignal.getBidPrice());
                                 }
+
+                                // 记录下单信息
+                                db.addSignal(tradeSignal);
+
+                                // 调用下单服务下单。
+                                sendSignal(
+                                        String.format(
+                                                "http://%s:%d/%s",
+                                                appConfig.getHttp().getHost(),
+                                                appConfig.getHttp().getPort(),
+                                                appConfig.getHttp().getPath()
+                                        ),
+                                        tradeSignal
+                                );
                             }
                         }
-                    } else {
-                        logger.info("market is not open");
                     }
                 }
 

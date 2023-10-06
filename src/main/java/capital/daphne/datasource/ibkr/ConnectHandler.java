@@ -30,7 +30,7 @@ public class ConnectHandler implements IbkrController.IConnectionHandler {
 
     @Override
     public void message(int status, int code, String message, String s1) {
-        logger.debug(String.format("status=%d, code=%d, message=%s, s1=%s", status, code, message, s1));
+        logger.info(String.format("status=%d, code=%d, message=%s, s1=%s", status, code, message, s1));
     }
 
     @Override

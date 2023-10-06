@@ -5,6 +5,7 @@ import capital.daphne.Db;
 import capital.daphne.datasource.Signal;
 import capital.daphne.strategy.Sma;
 import capital.daphne.strategy.Strategy;
+import capital.daphne.utils.Utils;
 import com.ib.client.Contract;
 import com.ib.client.Types;
 import org.slf4j.Logger;
@@ -36,6 +37,7 @@ public class Ibkr {
 
     public Ibkr(AppConfig appConfig, Db dbHandler) {
         ConnectHandler connectHandler = new ConnectHandler();
+        // ic = new IbkrController(connectHandler, new TwsLogger(), new TwsLogger());
         ic = new IbkrController(connectHandler);
         config = appConfig;
         db = dbHandler;
@@ -80,39 +82,43 @@ public class Ibkr {
         List<Signal> signalList = new ArrayList<>();
 
         for (AppConfig.SymbolConfig symbolConfig : config.getSymbols()) {
-            Signal signal = new Signal();
-            signal.setValid(false);
-            String symbol = symbolConfig.getSymbol();
+            if ((symbolConfig.getSecType().equals("Stock") && Utils.isMarketOpen()) || symbolConfig.getSecType().equals("Future")) {
+                Signal signal = new Signal();
+                signal.setValid(false);
+                String symbol = symbolConfig.getSymbol();
 
-            // 获取position信息
-            int position = positionHandler.getSymbolPosition(symbol);
+                // 获取position信息
+                int position = positionHandler.getSymbolPosition(symbol);
 
-            // 获取5s bar信息
-            Table df = realTimeBarHandler.getDataTable(symbol);
-            if (df == null) {
-                return signalList;
+                // 获取5s bar信息
+                Table df = realTimeBarHandler.getDataTable(symbol);
+                if (df == null) {
+                    return signalList;
+                }
+
+                // 获取当前bid和ask信息
+                double bidPrice = topMktDataHandler.getBidPrice(symbol);
+                double askPrice = topMktDataHandler.getAskPrice(symbol);
+                logger.debug(bidPrice + " " + askPrice);
+                // 判断是否要下单
+                Strategy strategyHandler = strategyHandlerMap.get(symbol);
+                Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, df, position);
+                if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
+                    return signalList;
+                }
+
+                Row latestBar = df.row(df.rowCount() - 1);
+                signal.setValid(true);
+                signal.setSymbol(symbol);
+                signal.setSide(side);
+                signal.setBidPrice(bidPrice);
+                signal.setAskPrice(askPrice);
+                signal.setWap(latestBar.getDouble("vwap"));
+                signal.setQuantity(symbolConfig.getOrderSize());
+                signalList.add(signal);
+            } else {
+                logger.info("market is not open");
             }
-
-            // 获取当前bid和ask信息
-            double bidPrice = topMktDataHandler.getBidPrice(symbol);
-            double askPrice = topMktDataHandler.getAskPrice(symbol);
-            logger.debug(bidPrice + " " + askPrice);
-            // 判断是否要下单
-            Strategy strategyHandler = strategyHandlerMap.get(symbol);
-            Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, df, position);
-            if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
-                return signalList;
-            }
-
-            Row latestBar = df.row(df.rowCount() - 1);
-            signal.setValid(true);
-            signal.setSymbol(symbol);
-            signal.setSide(side);
-            signal.setBidPrice(bidPrice);
-            signal.setAskPrice(askPrice);
-            signal.setWap(latestBar.getDouble("vwap"));
-            signal.setQuantity(symbolConfig.getOrderSize());
-            signalList.add(signal);
         }
         return signalList;
     }
@@ -156,7 +162,8 @@ public class Ibkr {
             for (AppConfig.SymbolConfig symbolConfig : config.getSymbols()) {
                 String symbol = symbolConfig.getSymbol();
                 Contract contract = genContract(symbol);
-                boolean rthOnly = true;
+                ic.reqContractDetails(contract, new ContractDetailsHandler());
+                boolean rthOnly = false;
                 int reqId = ic.reqRealTimeBars(contract, Types.WhatToShow.TRADES, rthOnly, realTimeBarHandler);
                 barSblReqIdMap.put(symbol, reqId);
                 realTimeBarHandler.setSblReqIdMap(barSblReqIdMap);
