@@ -81,7 +81,7 @@ public class Sma implements Strategy {
         return 1 + symbolConfig.getVolatilityA() + symbolConfig.getVolatilityB() * volatility + symbolConfig.getVolatilityC() * volatility * volatility;
     }
 
-    private TradeActionType processPriceBar(AppConfig.SymbolConfig symbolConfig, Row row, double volatilityMultiplier, int position, String benchmarkColumn) {
+    synchronized private TradeActionType processPriceBar(AppConfig.SymbolConfig symbolConfig, Row row, double volatilityMultiplier, int position, String benchmarkColumn) {
         String symbol = symbolConfig.getSymbol();
         Map<String, Object> actionMap = symbolActionMap.get(symbol);
         TradeActionType lastAction = (TradeActionType) actionMap.get("lastAction");
@@ -107,7 +107,7 @@ public class Sma implements Strategy {
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
 
-        if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime)) {
+        if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime) || symbolConfig.getSecType().equals("Future")) {
             double vwap = row.getDouble("vwap");
 
             double sma = row.getDouble(benchmarkColumn);
@@ -121,7 +121,7 @@ public class Sma implements Strategy {
                 Duration sellDuration = Duration.between(lastSellDatetime, datetime);
                 sellIntervalSeconds = sellDuration.getSeconds();
             }
-
+            logger.info(String.format("symbol=%s, vwap=%f, sma=%f, vwap<=sma*(1-buySignalMargin):%s, vwap >= sma * (1 + sellSignalMargin)：%s", symbol, vwap, sma, vwap <= sma * (1 - buySignalMargin), vwap >= sma * (1 + sellSignalMargin)));
             if (vwap <= sma * (1 - buySignalMargin)
                     && (lastAction.equals(TradeActionType.NO_ACTION) || lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= symbolConfig.getMinIntervalBetweenSignal())
                     && (position < symbolConfig.getMaxPortfolioPositions() || !symbolConfig.isHardLimit())) {

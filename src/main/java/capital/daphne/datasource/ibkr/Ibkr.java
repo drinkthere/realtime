@@ -81,19 +81,18 @@ public class Ibkr {
     public List<Signal> getTradeSignals() {
         List<Signal> signalList = new ArrayList<>();
 
-        for (AppConfig.SymbolConfig symbolConfig : config.getSymbols()) {
-            if ((symbolConfig.getSecType().equals("Stock") && Utils.isMarketOpen()) || symbolConfig.getSecType().equals("Future")) {
+        for (AppConfig.SymbolConfig sc : config.getSymbols()) {
+            if ((sc.getSecType().equals("Stock") && Utils.isMarketOpen()) || sc.getSecType().equals("Future")) {
                 Signal signal = new Signal();
                 signal.setValid(false);
-                String symbol = symbolConfig.getSymbol();
-
+                String symbol = sc.getSymbol();
                 // 获取position信息
                 int position = positionHandler.getSymbolPosition(symbol);
-
                 // 获取5s bar信息
                 Table df = realTimeBarHandler.getDataTable(symbol);
                 if (df == null) {
-                    return signalList;
+                    logger.info("Symbol=" + symbol + ", dataframe is not ready");
+                    continue;
                 }
 
                 // 获取当前bid和ask信息
@@ -104,8 +103,8 @@ public class Ibkr {
                 Strategy strategyHandler = strategyHandlerMap.get(symbol);
                 Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, df, position);
                 if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
-                    logger.info("no action signal");
-                    return signalList;
+                    logger.info("symbol=" + symbol + ", no action signal");
+                    continue;
                 }
 
                 Row latestBar = df.row(df.rowCount() - 1);
@@ -115,7 +114,7 @@ public class Ibkr {
                 signal.setBidPrice(bidPrice);
                 signal.setAskPrice(askPrice);
                 signal.setWap(latestBar.getDouble("vwap"));
-                signal.setQuantity(symbolConfig.getOrderSize());
+                signal.setQuantity(sc.getOrderSize());
                 signalList.add(signal);
             } else {
                 logger.info("market is not open");

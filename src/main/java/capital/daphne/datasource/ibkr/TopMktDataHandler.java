@@ -36,6 +36,10 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
         logger.debug(reqId + " " + tickType + " " + price + " " + tickAttrib);
         String symbol = reqIdSblMap.get(reqId);
         if (tickType.equals(TickType.BID) || tickType.equals(TickType.ASK)) {
+            if (price <= 0.0) {
+                logger.warn(reqId + " " + tickType + " " + price + " " + tickAttrib);
+                return;
+            }
             try {
                 Map<String, Double> priceMap;
                 if (tickerReqIdSblMap.containsKey(reqId)) {
@@ -85,8 +89,8 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
             String key = symbol + "." + type;
             String val = String.valueOf(price);
             jedis.set(key, val);
-            long timestamp = System.currentTimeMillis() + 10000;
-            jedis.expireAt(key, timestamp);
+            long timestamp = System.currentTimeMillis() / 1000 + 10;
+            jedis.expireAt("mykey", timestamp);
 
             if (symbol.equals("ES")) {
                 // 为了兼容用ES的数据下MES的单，这里多写一组价格

@@ -76,12 +76,6 @@ public class Main {
                     List<Signal> signalList = ibkr.getTradeSignals();
                     if (signalList.size() > 0) {
                         for (Signal tradeSignal : signalList) {
-                            logger.info(String.format(
-                                    "http://%s:%d/%s",
-                                    appConfig.getHttp().getHost(),
-                                    appConfig.getHttp().getPort(),
-                                    appConfig.getHttp().getPath()
-                            ));
                             if (tradeSignal.isValid()) {
                                 UUID uuid = UUID.randomUUID();
                                 String uuidString = uuid.toString();
@@ -95,6 +89,10 @@ public class Main {
                                     tradeSignal.setQuantity(0 - tradeSignal.getQuantity());
                                     tradeSignal.setPrice(tradeSignal.getBidPrice());
                                 }
+
+                                // 兼容用ES的数据，下MES的单
+                                String symbol = tradeSignal.getSymbol().equals("ES") ? "MES" : tradeSignal.getSymbol();
+                                tradeSignal.setSymbol(symbol);
 
                                 // 记录下单信息
                                 db.addSignal(tradeSignal);
@@ -152,6 +150,7 @@ public class Main {
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setDoOutput(true);
+
 
             JSONObject requestData = new JSONObject();
             requestData.put("uuid", signal.getUuid());
