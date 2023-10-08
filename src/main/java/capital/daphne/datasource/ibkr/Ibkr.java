@@ -59,7 +59,7 @@ public class Ibkr {
     }
 
 
-    public void startRealtimeWatcher() {
+    public void startTwsWatcher() {
         logger.info("subscribe 5s bar");
         sub5sBars();
 

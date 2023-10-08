@@ -66,7 +66,7 @@ public class Main {
         ibkr.initWap(symbolWapMap);
 
         logger.info("start IBKR watcher: tickers and 5s bars");
-        ibkr.startRealtimeWatcher();
+        ibkr.startTwsWatcher();
 
         // 5s一次检查是否需要触发买/卖信号
         while (true) {
@@ -139,7 +139,7 @@ public class Main {
             }
         }
     }
-    
+
     private static long getSleepMillis(long endTime) {
         long seconds = (endTime / 1000) % 60;
         long millis = endTime % 1000;
