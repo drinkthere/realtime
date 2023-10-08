@@ -1,16 +1,21 @@
 package capital.daphne.datasource.ibkr;
 
+import capital.daphne.AppConfig;
 import capital.daphne.JedisUtil;
+import capital.daphne.utils.Utils;
 import com.ib.client.Decimal;
 import com.ib.client.TickAttrib;
 import com.ib.client.TickType;
+import com.mysql.cj.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
 
@@ -24,7 +29,10 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
     // 用来计算twap
     private Map<String, Double> twapMap;
 
-    public TopMktDataHandler() {
+    private List<AppConfig.SymbolConfig> symbolsConfig;
+
+    public TopMktDataHandler(List<AppConfig.SymbolConfig> symbolsConfig) {
+        this.symbolsConfig = symbolsConfig;
         tickerReqIdSblMap = new HashMap<>();
         reqIdSblMap = new HashMap<>();
         sblReqIdMap = new HashMap<>();
@@ -34,7 +42,12 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
     @Override
     public void tickPrice(int reqId, TickType tickType, double price, TickAttrib tickAttrib) {
         logger.debug(reqId + " " + tickType + " " + price + " " + tickAttrib);
-        String symbol = reqIdSblMap.get(reqId);
+        // key = symbol + "." + secType, 如: SPY.STK 或 SPY.CDF 等
+        String key = reqIdSblMap.get(reqId);
+        List<String> splitArr = StringUtils.split(key, ".", true);
+        String symbol = splitArr.get(0);
+        String secType = splitArr.get(1);
+
         if (tickType.equals(TickType.BID) || tickType.equals(TickType.ASK)) {
             if (price <= 0.0) {
                 logger.warn(reqId + " " + tickType + " " + price + " " + tickAttrib);
@@ -49,10 +62,10 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
                     // 根据 tickType 更新对应的价格
                     if (tickType.equals(TickType.BID)) {
                         priceMap.put("bidPrice", price);
-                        updateTickerInRedis(symbol, TickType.BID, price);
+                        updateTickerInRedis(symbol, secType, TickType.BID, price);
                     } else if (tickType.equals(TickType.ASK)) {
                         priceMap.put("askPrice", price);
-                        updateTickerInRedis(symbol, TickType.ASK, price);
+                        updateTickerInRedis(symbol, secType, TickType.ASK, price);
                     }
                 } else {
                     // 如果 reqId 不存在于 tickerReqIdSblMap 中，进行初始化
@@ -60,41 +73,96 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
                     if (tickType.equals(TickType.BID)) {
                         priceMap.put("bidPrice", price);
                         priceMap.put("askPrice", 0.0); // 初始化 askPrice
-                        updateTickerInRedis(symbol, TickType.BID, price);
-                        updateTickerInRedis(symbol, TickType.ASK, 0.0);
+                        updateTickerInRedis(symbol, secType, TickType.BID, price);
+                        updateTickerInRedis(symbol, secType, TickType.ASK, 0.0);
                     } else if (tickType.equals(TickType.ASK)) {
                         priceMap.put("bidPrice", 0.0); // 初始化 bidPrice
                         priceMap.put("askPrice", price);
-                        updateTickerInRedis(symbol, TickType.BID, 0.0);
-                        updateTickerInRedis(symbol, TickType.ASK, price);
+                        updateTickerInRedis(symbol, secType, TickType.BID, 0.0);
+                        updateTickerInRedis(symbol, secType, TickType.ASK, price);
                     }
 
                     // 将初始化后的 priceMap 放入 tickerReqIdSblMap
                     tickerReqIdSblMap.put(reqId, priceMap);
                 }
                 // updateTwap(reqId, priceMap);
-                logger.debug(String.format("reqId=%d, bidPrice=%f, askPrice=%f", reqId, priceMap.get("bidPrice"), priceMap.get("askPrice")));
+                logger.debug(String.format("reqId=%d, symbol=%s, secType=%s, bidPrice=%f, askPrice=%f",
+                        reqId, symbol, secType, priceMap.get("bidPrice"), priceMap.get("askPrice")));
             } catch (Exception e) {
                 logger.error(e.getMessage());
             }
-
         }
         // todo maybe add bidSize and askSize later
     }
 
-    private void updateTickerInRedis(String symbol, TickType type, double price) {
+
+    public double getTwap(String symbol, String secType) {
+        String key = Utils.genKey(symbol, secType);
+        Double twap = twapMap.get(key);
+        return (twap == null) ? 0.0 : twap;
+    }
+
+    public void bindReqIdSymbol(String symbol, String secType, int reqId) {
+        String key = Utils.genKey(symbol, secType);
+        sblReqIdMap.put(key, reqId);
+        reqIdSblMap.put(reqId, key);
+    }
+
+    public double getBidPrice(String symbol, String secType) {
+        String key = Utils.genKey(symbol, secType);
+        Integer reqId = sblReqIdMap.get(key);
+        if (tickerReqIdSblMap.containsKey(reqId)) {
+            Map<String, Double> priceMap = tickerReqIdSblMap.get(reqId);
+            return priceMap.getOrDefault("bidPrice", 0.0);
+        } else {
+            return 0.0;
+        }
+    }
+
+    public double getAskPrice(String symbol, String secType) {
+        String key = Utils.genKey(symbol, secType);
+        Integer reqId = sblReqIdMap.get(key);
+        if (tickerReqIdSblMap.containsKey(reqId)) {
+            Map<String, Double> priceMap = tickerReqIdSblMap.get(reqId);
+            return priceMap.getOrDefault("askPrice", 0.0);
+        } else {
+            return 0.0;
+        }
+    }
+
+    private void updateTickerInRedis(String symbol, String secType, TickType type, double price) {
         JedisPool jedisPool = JedisUtil.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
+
             // 更新ticker信息，设置10s过期
-            String key = symbol + "." + type;
+            String key = symbol + "." + secType + "." + type;
             String val = String.valueOf(price);
             jedis.set(key, val);
             long timestamp = System.currentTimeMillis() / 1000 + 10;
             jedis.expireAt("mykey", timestamp);
 
-            if (symbol.equals("ES")) {
-                // 为了兼容用ES的数据下MES的单，这里多写一组价格
-                key = "MES." + type;
+            AppConfig.SymbolConfig sc;
+            Optional<AppConfig.SymbolConfig> symbolItemOptional = symbolsConfig.stream()
+                    .filter(item -> item.getSymbol().equals(symbol) && item.getSecType().equals(secType))
+                    .findFirst();
+            if (symbolItemOptional.isPresent()) {
+                sc = symbolItemOptional.get();
+            } else {
+                logger.error("Can't find the configuration of symbol=" + symbol + ", secType=" + secType);
+                return;
+            }
+
+            // 如果有需要重写的，或者并行发送的contract，就把对应的价格也存储下来
+            AppConfig.Rewrite rewrite = sc.getRewrite();
+            if (rewrite != null) {
+                key = rewrite.getSymbol() + "." + rewrite.getSecType() + "." + type;
+                jedis.set(key, val);
+                jedis.expireAt(key, timestamp);
+            }
+
+            AppConfig.Parallel parallel = sc.getParallel();
+            if (parallel != null) {
+                key = parallel.getSymbol() + "." + parallel.getSecType() + "." + type;
                 jedis.set(key, val);
                 jedis.expireAt(key, timestamp);
             }
@@ -104,45 +172,16 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
     }
 
     private void updateTwap(int reqId, Map<String, Double> priceMap) {
-        String symbol = reqIdSblMap.get(reqId);
+        String key = reqIdSblMap.get(reqId);
         Double bidPrice = priceMap.get("bidPrice");
         Double askPrice = priceMap.get("askPrice");
         if (bidPrice <= 0.0 || askPrice <= 0.0) {
             return;
         }
         Double twap = (bidPrice + askPrice) / 2;
-        twapMap.put(symbol, twap);
+        twapMap.put(key, twap);
     }
 
-    public double getTwap(String symbol) {
-        Double twap = twapMap.get(symbol);
-        return (twap == null) ? 0.0 : twap;
-    }
-
-    public void bindReqIdSymbol(String symbol, int reqId) {
-        sblReqIdMap.put(symbol, reqId);
-        reqIdSblMap.put(reqId, symbol);
-    }
-
-    public double getBidPrice(String symbol) {
-        Integer reqId = sblReqIdMap.get(symbol);
-        if (tickerReqIdSblMap.containsKey(reqId)) {
-            Map<String, Double> priceMap = tickerReqIdSblMap.get(reqId);
-            return priceMap.getOrDefault("bidPrice", 0.0);
-        } else {
-            return 0.0;
-        }
-    }
-
-    public double getAskPrice(String symbol) {
-        Integer reqId = sblReqIdMap.get(symbol);
-        if (tickerReqIdSblMap.containsKey(reqId)) {
-            Map<String, Double> priceMap = tickerReqIdSblMap.get(reqId);
-            return priceMap.getOrDefault("askPrice", 0.0);
-        } else {
-            return 0.0;
-        }
-    }
 
     @Override
     public void tickSize(TickType tickType, Decimal size) {

@@ -29,4 +29,8 @@ public class Utils {
 
         return false;
     }
+
+    public static String genKey(String symbol, String secType) {
+        return symbol + "." + secType;
+    }
 }

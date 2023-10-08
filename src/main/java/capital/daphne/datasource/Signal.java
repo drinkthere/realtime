@@ -1,5 +1,6 @@
 package capital.daphne.datasource;
 
+import capital.daphne.AppConfig;
 import capital.daphne.strategy.Strategy;
 import lombok.Data;
 
@@ -16,4 +17,6 @@ public class Signal {
     private double wap;
     private Strategy.TradeActionType side;
     private int quantity;
+    private AppConfig.Rewrite rewrite;
+    private AppConfig.Parallel parallel;
 }

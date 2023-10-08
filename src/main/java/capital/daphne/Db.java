@@ -1,6 +1,7 @@
 package capital.daphne;
 
 import capital.daphne.datasource.Signal;
+import capital.daphne.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,73 +44,20 @@ public class Db {
         }
     }
 
-    public Map<String, double[]> loadWapCache(List<AppConfig.SymbolConfig> symbolList) {
-        HashMap<String, double[]> symbolWapMap = new HashMap<>();
-        try {
-            Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
-            for (AppConfig.SymbolConfig symbolConfig : symbolList) {
-                String symbol = symbolConfig.getSymbol();
-                double[] wapArr = loadSymbolWapCache(connection, symbol);
-                symbolWapMap.put(symbol, wapArr);
-            }
-            connection.close();
-        } catch (SQLException e) {
-            logger.error("load wap cache failed, error:" + e.getMessage());
-        }
-        return symbolWapMap;
-    }
-
-    private double[] loadSymbolWapCache(Connection connection, String symbol) {
-        double[] wapArr = {0.0, 0.0, 0.0, 0.0};
-        // 获取当前日期（美东时间）
-        TimeZone timeZone = TimeZone.getTimeZone("US/Eastern");
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
-        dateFormat.setTimeZone(timeZone);
-        Date currentDateTime = new Date();
-        String currDate = dateFormat.format(currentDateTime);
-
-        // 查询当前日期的max_wap和min_wap数据
-        double[] currDateWapArr = getWap(connection, symbol, currDate);
-        if (currDateWapArr == null) {
-            currDateWapArr = new double[]{0.0, 0.0};
-        }
-
-        // 获取上一个交易日的max_wap和min_wap，最多向前回溯5个交易日
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(currentDateTime);
-        double prevMaxWap = 0.0;
-        double prevMinWap = 0.0;
-        for (int i = 1; i <= 5; i++) {
-            calendar.add(Calendar.DAY_OF_YEAR, -i);
-            Date prevDateTime = calendar.getTime();
-            String prevDate = dateFormat.format(prevDateTime);
-            double[] prevDateWapArr = getWap(connection, symbol, prevDate);
-            if (prevDateWapArr != null && prevDateWapArr[0] != 0 && prevDateWapArr[1] != 0) {
-                prevMaxWap = prevDateWapArr[0];
-                prevMinWap = prevDateWapArr[1];
-            }
-        }
-        wapArr[0] = prevMaxWap;
-        wapArr[1] = prevMinWap;
-        wapArr[2] = currDateWapArr[0];
-        wapArr[3] = currDateWapArr[1];
-
-        return wapArr;
-    }
-
-    public void updateWapCache(String symbol, double maxWap, double minWap) {
+    public void updateWapCache(String symbol, String secType, double maxWap, double minWap) {
         try {
             Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
             String currUsDate = getCurrUsDate();
-            double[] wapArr = getWap(connection, symbol, currUsDate);
+            double[] wapArr = getWap(connection, symbol, secType, currUsDate);
             if (wapArr == null) {
                 // insert data
-                String insertSQL = "INSERT INTO tb_wap (symbol, max_wap, min_wap, us_date) VALUES (?, ?, ?, ?)";
+                String insertSQL = "INSERT INTO tb_wap (symbol, sec_type, max_wap, min_wap, us_date) VALUES (?, ?, ?, ?, ?)";
                 PreparedStatement insertStatement = connection.prepareStatement(insertSQL);
                 insertStatement.setString(1, symbol);
-                insertStatement.setDouble(2, maxWap);
-                insertStatement.setDouble(3, minWap);
-                insertStatement.setString(4, currUsDate);
+                insertStatement.setString(2, secType);
+                insertStatement.setDouble(3, maxWap);
+                insertStatement.setDouble(4, minWap);
+                insertStatement.setString(5, currUsDate);
                 int rowCount = insertStatement.executeUpdate();
                 if (rowCount > 0) {
                     System.out.println("wap cache insert successfully.");
@@ -117,12 +65,13 @@ public class Db {
                     System.out.println("wap cache insert failed.");
                 }
             } else {
-                String sql = "UPDATE tb_wap SET max_wap = ?, min_wap = ? WHERE symbol = ? AND us_date = ?";
+                String sql = "UPDATE tb_wap SET max_wap = ?, min_wap = ? WHERE symbol = ? AND sec_type=? AND us_date = ?";
                 try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
                     preparedStatement.setDouble(1, maxWap);
                     preparedStatement.setDouble(2, minWap);
                     preparedStatement.setString(3, symbol);
-                    preparedStatement.setString(4, currUsDate);
+                    preparedStatement.setString(4, secType);
+                    preparedStatement.setString(5, currUsDate);
 
                     int rowCount = preparedStatement.executeUpdate();
                     if (rowCount > 0) {
@@ -138,20 +87,68 @@ public class Db {
         }
     }
 
-    private String getCurrUsDate() {
+    public Map<String, double[]> loadWapCache(List<AppConfig.SymbolConfig> symbolList) {
+        HashMap<String, double[]> symbolWapMap = new HashMap<>();
+        try {
+            Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
+            for (AppConfig.SymbolConfig sc : symbolList) {
+                String symbol = sc.getSymbol();
+                String secType = sc.getSecType();
+                double[] wapArr = loadSymbolWapCache(connection, symbol, secType);
+                symbolWapMap.put(Utils.genKey(symbol, secType), wapArr);
+            }
+            connection.close();
+        } catch (SQLException e) {
+            logger.error("load wap cache failed, error:" + e.getMessage());
+        }
+        return symbolWapMap;
+    }
+
+    private double[] loadSymbolWapCache(Connection connection, String symbol, String secType) {
+        double[] wapArr = {0.0, 0.0, 0.0, 0.0};
+        // 获取当前日期（美东时间）
         TimeZone timeZone = TimeZone.getTimeZone("US/Eastern");
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
         dateFormat.setTimeZone(timeZone);
         Date currentDateTime = new Date();
-        return dateFormat.format(currentDateTime);
+        String currDate = dateFormat.format(currentDateTime);
+
+        // 查询当前日期的max_wap和min_wap数据
+        double[] currDateWapArr = getWap(connection, symbol, secType, currDate);
+        if (currDateWapArr == null) {
+            currDateWapArr = new double[]{0.0, 0.0};
+        }
+
+        // 获取上一个交易日的max_wap和min_wap，最多向前回溯5个交易日
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(currentDateTime);
+        double prevMaxWap = 0.0;
+        double prevMinWap = 0.0;
+        for (int i = 1; i <= 5; i++) {
+            calendar.add(Calendar.DAY_OF_YEAR, -i);
+            Date prevDateTime = calendar.getTime();
+            String prevDate = dateFormat.format(prevDateTime);
+            double[] prevDateWapArr = getWap(connection, symbol, secType, prevDate);
+            if (prevDateWapArr != null && prevDateWapArr[0] != 0 && prevDateWapArr[1] != 0) {
+                prevMaxWap = prevDateWapArr[0];
+                prevMinWap = prevDateWapArr[1];
+            }
+        }
+        wapArr[0] = prevMaxWap;
+        wapArr[1] = prevMinWap;
+        wapArr[2] = currDateWapArr[0];
+        wapArr[3] = currDateWapArr[1];
+
+        return wapArr;
     }
 
-    private double[] getWap(Connection connection, String symbol, String usDate) {
+    private double[] getWap(Connection connection, String symbol, String secType, String usDate) {
         try {
-            String sql = "SELECT max_wap, min_wap FROM tb_wap WHERE symbol = ? AND us_date = ? LIMIT 1";
+            String sql = "SELECT max_wap, min_wap FROM tb_wap WHERE symbol = ? AND sec_type = ? and us_date = ? LIMIT 1";
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
             preparedStatement.setString(1, symbol);
-            preparedStatement.setString(2, usDate);
+            preparedStatement.setString(2, secType);
+            preparedStatement.setString(3, usDate);
             ResultSet resultSet = preparedStatement.executeQuery();
 
             if (resultSet.next()) {
@@ -166,5 +163,11 @@ public class Db {
         return null;
     }
 
-
+    private String getCurrUsDate() {
+        TimeZone timeZone = TimeZone.getTimeZone("US/Eastern");
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+        dateFormat.setTimeZone(timeZone);
+        Date currentDateTime = new Date();
+        return dateFormat.format(currentDateTime);
+    }
 }

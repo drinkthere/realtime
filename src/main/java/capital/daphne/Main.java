@@ -77,36 +77,49 @@ public class Main {
                     if (signalList.size() > 0) {
                         for (Signal tradeSignal : signalList) {
                             if (tradeSignal.isValid()) {
+
                                 UUID uuid = UUID.randomUUID();
-                                String uuidString = uuid.toString();
-                                tradeSignal.setUuid(uuidString);
+                                tradeSignal.setUuid(uuid.toString());
+                                tradeSignal.setQuantity(tradeSignal.getQuantity());
                                 if (tradeSignal.getSide().equals(Strategy.TradeActionType.BUY)) {
                                     // buy时， price设置成ask price
-                                    tradeSignal.setQuantity(tradeSignal.getQuantity());
                                     tradeSignal.setPrice(tradeSignal.getAskPrice());
                                 } else if (tradeSignal.getSide().equals(Strategy.TradeActionType.SELL)) {
                                     // sell时， price设置成bid price
-                                    tradeSignal.setQuantity(0 - tradeSignal.getQuantity());
+                                    tradeSignal.setQuantity(-tradeSignal.getQuantity());
                                     tradeSignal.setPrice(tradeSignal.getBidPrice());
                                 }
 
-                                // 兼容用ES的数据，下MES的单
-                                String symbol = tradeSignal.getSymbol().equals("ES") ? "MES" : tradeSignal.getSymbol();
-                                tradeSignal.setSymbol(symbol);
+                                // 如果需要根据当前信号，去交易其他contract，根据rewrite信息进行改变，如根据ES的信号，下MES的单
+                                AppConfig.Rewrite rewrite = tradeSignal.getRewrite();
+                                if (rewrite != null) {
+                                    tradeSignal.setSymbol(rewrite.getSymbol());
+                                    tradeSignal.setSecType(rewrite.getSecType());
+                                    tradeSignal.setQuantity(rewrite.getOrderSize());
+                                }
 
-                                // 记录下单信息
+                                // 记录信号
                                 db.addSignal(tradeSignal);
 
-                                // 调用下单服务下单。
-                                sendSignal(
-                                        String.format(
-                                                "http://%s:%d/%s",
-                                                appConfig.getHttp().getHost(),
-                                                appConfig.getHttp().getPort(),
-                                                appConfig.getHttp().getPath()
-                                        ),
-                                        tradeSignal
+                                // 发送下单信号
+                                String traderSrvUrl = String.format(
+                                        "http://%s:%d/%s",
+                                        appConfig.getHttp().getHost(),
+                                        appConfig.getHttp().getPort(),
+                                        appConfig.getHttp().getPath()
                                 );
+                                sendSignal(traderSrvUrl, tradeSignal);
+
+                                // 如果需要根据当前信号，同时去交易其他交易对，根据parallel进行改变，如根据SPY.STK的信号，同时下单SPY.CDF
+                                AppConfig.Parallel parallel = tradeSignal.getParallel();
+                                if (parallel != null) {
+                                    tradeSignal.setSymbol(parallel.getSymbol());
+                                    tradeSignal.setSecType(parallel.getSecType());
+                                    tradeSignal.setQuantity(parallel.getOrderSize());
+
+                                    db.addSignal(tradeSignal);
+                                    sendSignal(traderSrvUrl, tradeSignal);
+                                }
                             }
                         }
                     }

@@ -2,8 +2,10 @@ package capital.daphne.datasource.ibkr;
 
 import capital.daphne.AppConfig;
 import capital.daphne.Db;
+import capital.daphne.utils.Utils;
 import com.ib.client.Decimal;
 import com.ib.controller.Bar;
+import com.mysql.cj.util.StringUtils;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,8 +47,9 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         sblBarListMap = new HashMap<>();
         sblMinBarNumMap = new HashMap<>();
         for (AppConfig.SymbolConfig sc : symbolsConfig) {
-            sblBarListMap.put(sc.getSymbol(), new ArrayList<>());
-            sblMinBarNumMap.put(sc.getSymbol(), sc.getNumStatsBars() + 1);
+            String key = Utils.genKey(sc.getSymbol(), sc.getSecType());
+            sblBarListMap.put(key, new ArrayList<>());
+            sblMinBarNumMap.put(key, sc.getStrategy().getNumStatsBars() + 1);
         }
         this.topMktDataHandler = topMktDataHandler;
         wrongWapNum = 0;
@@ -68,7 +71,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
             return;
         }
 
-        String symbol = sblReqIdMap.entrySet().stream()
+        String key = sblReqIdMap.entrySet().stream()
                 .filter(entry -> entry.getValue().equals(reqId))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.joining(", "));
@@ -83,7 +86,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
                 // 如果超过最大连续出错的数量，就清空所有的bar数据，重新计算
                 if (wrongWapNum >= maxWrongWapNum) {
                     logger.warn("vwap exceed 0.1% beyond " + maxWrongWapNum + " times");
-                    clearBarList(symbol);
+                    clearBarList(key);
                 }
                 return;
             }
@@ -94,7 +97,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         wrongWapNum = 0;
         logger.debug("o:" + bar.open() + "|h:" + bar.high() + "|l:" + bar.low() + "|c:" + bar.close() + "|vw:" + vwap + "|cw:" + wap + "|v:" + bar.volume());
         boolean dataUpdate = false;
-        double[] wapArr = sblWapMap.get(symbol);
+        double[] wapArr = sblWapMap.get(key);
 
         //wapArr[0 -> prevMaxWap, 1 -> prevMinWap, 2 -> currMaxWap, 3 -> currMinWap]
         double currMaxWap = wapArr[2];
@@ -109,15 +112,18 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
         wapArr[2] = currMaxWap;
         wapArr[3] = currMinWap;
-        sblWapMap.put(symbol, wapArr);
+        sblWapMap.put(key, wapArr);
 
         if (dataUpdate) {
             // 更新当前交易日的max_wap和min_wap
-            db.updateWapCache(symbol, currMaxWap, currMinWap);
+            List<String> splitArr = StringUtils.split(key, ".", true);
+            String symbol = splitArr.get(0);
+            String secType = splitArr.get(1);
+            db.updateWapCache(symbol, secType, currMaxWap, currMinWap);
         }
 
         BarInfo barInfo = new BarInfo();
-        List<BarInfo> barList = sblBarListMap.get(symbol);
+        List<BarInfo> barList = sblBarListMap.get(key);
 //        logger.info(sblBarListMap.toString());
 //        logger.info(reqId + " " + symbol + " " + barList);
         try {
@@ -133,19 +139,20 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
 
         // 只保留2倍minNumOfBar的bar数据
-        int minBarNum = sblMinBarNumMap.get(symbol);
+        int minBarNum = sblMinBarNumMap.get(key);
         int maxKeepNumOfBars = 2 * minBarNum;
         if (barList.size() > maxKeepNumOfBars) {
             int elementsToRemove = barList.size() - maxKeepNumOfBars;
             barList.subList(0, elementsToRemove).clear();
         }
         //logger.info(reqId + " | " + symbol + " " + barList);
-        sblBarListMap.put(symbol, barList);
+        sblBarListMap.put(key, barList);
     }
 
-    synchronized public Table getDataTable(String symbol) {
-        int minBarNum = sblMinBarNumMap.get(symbol);
-        List<BarInfo> barList = sblBarListMap.get(symbol);
+    synchronized public Table getDataTable(String symbol, String secType) {
+        String key = Utils.genKey(symbol, secType);
+        int minBarNum = sblMinBarNumMap.get(key);
+        List<BarInfo> barList = sblBarListMap.get(key);
         logger.debug("size=" + barList.size() + ", minNumOfBars=" + minBarNum);
         if (barList.size() < minBarNum) {
             return null;
@@ -191,9 +198,9 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         return (maxWap - minWap) / minWap;
     }
 
-    synchronized private void clearBarList(String symbol) {
-        List<BarInfo> barList = sblBarListMap.get(symbol);
+    synchronized private void clearBarList(String key) {
+        List<BarInfo> barList = sblBarListMap.get(key);
         barList.clear();
-        sblBarListMap.put(symbol, barList);
+        sblBarListMap.put(key, barList);
     }
 }

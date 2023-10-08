@@ -24,25 +24,32 @@
   "symbols": [
     {
       "symbol": "SPY",
-      "secType": "CFD",
+      "secType": "STK",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
       "exchange": "SMART",
-      "primaryExchange": "",
+      "primaryExchange": "ARCA",
       "currency": "USD",
-      "strategy": "SMA",
-      "portfolioRequiredToClose": false,
-      "maxPortfolioPositions": 500,
-      "positionSignalMarginOffset": -0.00001,
-      "minDurationAfterSignal": 5,
-      "orderSize": 100,
-      "minIntervalBetweenSignal": 72,
-      "numStatsBars": 18,
-      "signalMargin": 0.0005,
-      "volatilityA": 0,
-      "volatilityB": 60,
-      "volatilityC": -100,
-      "hardLimit": true
+      "strategy": {
+        "name": "SMA",
+        "portfolioRequiredToClose": false,
+        "maxPortfolioPositions": 500,
+        "positionSignalMarginOffset": -0.00001,
+        "minDurationAfterSignal": 5,
+        "orderSize": 100,
+        "minIntervalBetweenSignal": 72,
+        "numStatsBars": 18,
+        "signalMargin": 0.0005,
+        "volatilityA": 0,
+        "volatilityB": 60,
+        "volatilityC": -100,
+        "hardLimit": true
+      },
+      "parallel": {
+        "symbol": "SPY",
+        "secType": "CFD",
+        "orderSize": 200
+      }
     }
   ]
 }
