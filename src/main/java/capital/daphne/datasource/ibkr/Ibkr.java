@@ -82,7 +82,7 @@ public class Ibkr {
         List<Signal> signalList = new ArrayList<>();
 
         for (AppConfig.SymbolConfig sc : config.getSymbols()) {
-            if ((sc.getSecType().equals("Stock") && Utils.isMarketOpen()) || sc.getSecType().equals("Future")) {
+            if ((sc.getSecType().equals("STK") && Utils.isMarketOpen()) || sc.getSecType().equals("FUT")) {
                 Signal signal = new Signal();
                 signal.setValid(false);
                 String symbol = sc.getSymbol();
@@ -110,6 +110,7 @@ public class Ibkr {
                 Row latestBar = df.row(df.rowCount() - 1);
                 signal.setValid(true);
                 signal.setSymbol(symbol);
+                signal.setSecType(sc.getSecType());
                 signal.setSide(side);
                 signal.setBidPrice(bidPrice);
                 signal.setAskPrice(askPrice);
@@ -134,13 +135,14 @@ public class Ibkr {
 
         Contract contract = new Contract();
         contract.symbol(symbol); // 设置合约标的
-
-        if (symbolConfig.getSecType().equals("Future")) {
+        if (symbolConfig.getSecType().equals("FUT")) {
             contract.secType(Types.SecType.FUT);
             contract.lastTradeDateOrContractMonth(symbolConfig.getLastTradeDateOrContractMonth());
             contract.multiplier(symbolConfig.getMultiplier());
-        } else if (symbolConfig.getSecType().equals("Stock")) {
+        } else if (symbolConfig.getSecType().equals("STK")) {
             contract.secType(Types.SecType.STK);
+        } else if (symbolConfig.getSecType().equals("CFD")) {
+            contract.secType(Types.SecType.CFD);
         }
         contract.exchange(symbolConfig.getExchange()); // 设置交易所
         contract.primaryExch(symbolConfig.getPrimaryExchange());

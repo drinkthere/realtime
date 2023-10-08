@@ -9,6 +9,7 @@ public class Signal {
     private boolean valid;
     private String uuid;
     private String symbol;
+    private String secType;
     private double bidPrice;
     private double askPrice;
     private double price;

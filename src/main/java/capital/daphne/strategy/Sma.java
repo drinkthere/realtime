@@ -107,7 +107,7 @@ public class Sma implements Strategy {
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
 
-        if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime) || symbolConfig.getSecType().equals("Future")) {
+        if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime) || symbolConfig.getSecType().equals("FUT")) {
             double vwap = row.getDouble("vwap");
 
             double sma = row.getDouble(benchmarkColumn);

@@ -155,6 +155,7 @@ public class Main {
             JSONObject requestData = new JSONObject();
             requestData.put("uuid", signal.getUuid());
             requestData.put("symbol", signal.getSymbol());
+            requestData.put("secType", signal.getSecType());
             requestData.put("price", signal.getPrice());
             requestData.put("wap", signal.getWap());
             requestData.put("quantity", signal.getQuantity());
