@@ -1,5 +1,6 @@
 package capital.daphne.datasource.ibkr;
 
+import capital.daphne.AppConfig;
 import capital.daphne.Main;
 import capital.daphne.utils.Utils;
 import com.ib.client.Contract;
@@ -32,13 +33,21 @@ public class PositionHandler implements IbkrController.IPositionHandler {
         }
     }
 
-    public int getSymbolPosition(String symbol, String secType) {
-        String key = Utils.genKey(symbol, secType);
+    public int[] getSymbolPosition(AppConfig.SymbolConfig sc) {
+        String key = Utils.genKey(sc.getSymbol(), sc.getSecType());
+        int maxPortfolioPositions = sc.getStrategy().getMaxPortfolioPositions();
+
+        AppConfig.Rewrite rewrite = sc.getRewrite();
+        if (rewrite != null) {
+            key = Utils.genKey(rewrite.getSymbol(), rewrite.getSecType());
+            maxPortfolioPositions = rewrite.getMaxPortfolioPositions();
+        }
+
         Integer position = positionMap.get(key);
         if (position == null) {
-            return 0;
+            return new int[]{0, maxPortfolioPositions};
         } else {
-            return position;
+            return new int[]{position, maxPortfolioPositions};
         }
     }
 

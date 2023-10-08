@@ -1,9 +1,4 @@
 {
-  "http": {
-    "host": "127.0.0.1",
-    "port": 5500,
-    "path": "trade"
-  },
   "database": {
     "host": "127.0.0.1",
     "port": 3306,
@@ -49,6 +44,11 @@
         "symbol": "SPY",
         "secType": "CFD",
         "orderSize": 200
+      },
+      "http": {
+        "host": "127.0.0.1",
+        "port": 5500,
+        "path": "trade"
       }
     }
   ]

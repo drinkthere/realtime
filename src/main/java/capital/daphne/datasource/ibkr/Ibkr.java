@@ -13,43 +13,34 @@ import org.slf4j.LoggerFactory;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 public class Ibkr {
     private static final Logger logger = LoggerFactory.getLogger(Ibkr.class);
 
-    private IbkrController ic;
+    private final IbkrController ic;
 
-    private AppConfig config;
-
-    private Db db;
-    private TopMktDataHandler topMktDataHandler;
-
-    private RealTimeBarHandler realTimeBarHandler;
-
-    private PositionHandler positionHandler;
-
+    private final AppConfig config;
+    private final TopMktDataHandler topMktDataHandler;
+    private final RealTimeBarHandler realTimeBarHandler;
+    private final PositionHandler positionHandler;
     private Map<String, Strategy> strategyHandlerMap;
 
-    public Ibkr(AppConfig appConfig, Db dbHandler) {
+    public Ibkr(AppConfig appConfig, Db db) {
         ConnectHandler connectHandler = new ConnectHandler();
         // ic = new IbkrController(connectHandler, new TwsLogger(), new TwsLogger());
         ic = new IbkrController(connectHandler);
         config = appConfig;
-        db = dbHandler;
         topMktDataHandler = new TopMktDataHandler(config.getSymbols());
         positionHandler = new PositionHandler();
-        realTimeBarHandler = new RealTimeBarHandler(db, config.getSymbols(), topMktDataHandler);
+        realTimeBarHandler = new RealTimeBarHandler(db, config.getSymbols());
 
-        strategyHandlerMap = new HashMap<>();
-        for (AppConfig.SymbolConfig sc : config.getSymbols()) {
-            AppConfig.Strategy strategy = sc.getStrategy();
-            if (strategy != null) {
-                Strategy strategyHandler = initStrategyHandler(strategy.getName());
-                strategyHandlerMap.put(Utils.genKey(sc.getSymbol(), sc.getSecType()), strategyHandler);
-            }
-        }
+        // 初始化symbol对应的strategy handlers
+        initSymbolStrategyHandlers();
     }
 
     public void connectTWS() {
@@ -62,6 +53,7 @@ public class Ibkr {
         }
     }
 
+    // 初始化wap信息，用于计算波动率，因为要保存前一天的数据，所以用数据库做了缓存
     public void initWap(Map<String, double[]> symbolWapMap) {
         realTimeBarHandler.initWap(symbolWapMap);
     }
@@ -84,26 +76,31 @@ public class Ibkr {
         for (AppConfig.SymbolConfig sc : config.getSymbols()) {
             String symbol = sc.getSymbol();
             String secType = sc.getSecType();
+            String key = Utils.genKey(symbol, secType);
             if ((secType.equals("STK") && Utils.isMarketOpen()) || secType.equals("FUT")) {
                 Signal signal = new Signal();
                 signal.setValid(false);
 
-                // 获取position信息
-                int position = positionHandler.getSymbolPosition(symbol, secType);
                 // 获取5s bar信息
-                Table df = realTimeBarHandler.getDataTable(symbol, secType);
+                Table df = realTimeBarHandler.getDataTable(key);
                 if (df == null) {
                     logger.info("symbol=" + symbol + ", secType= " + secType + ", dataframe is not ready");
                     continue;
                 }
 
                 // 获取当前bid和ask信息
-                double bidPrice = topMktDataHandler.getBidPrice(symbol, secType);
-                double askPrice = topMktDataHandler.getAskPrice(symbol, secType);
+                double bidPrice = topMktDataHandler.getBidPrice(key);
+                double askPrice = topMktDataHandler.getAskPrice(key);
                 logger.debug(bidPrice + " " + askPrice);
+
+                // 获取position信息
+                int[] positionArr = positionHandler.getSymbolPosition(sc);
+                int position = positionArr[0];
+                int maxPosition = positionArr[1];
+
                 // 判断是否要下单
-                Strategy strategyHandler = strategyHandlerMap.get(Utils.genKey(symbol, secType));
-                Strategy.TradeActionType side = strategyHandler.getSignalSide(symbol, secType, df, position);
+                Strategy strategyHandler = strategyHandlerMap.get(key);
+                Strategy.TradeActionType side = strategyHandler.getSignalSide(df, position, maxPosition);
                 if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
                     logger.info("symbol=" + symbol + ", secType= " + secType + ", no action signal");
                     continue;
@@ -118,8 +115,7 @@ public class Ibkr {
                 signal.setAskPrice(askPrice);
                 signal.setWap(latestBar.getDouble("vwap"));
                 signal.setQuantity(sc.getStrategy().getOrderSize());
-                signal.setRewrite(sc.getRewrite());
-                signal.setParallel(sc.getParallel());
+                signal.setSymbolConfig(sc);
                 signalList.add(signal);
             } else {
                 logger.info("market is not open");
@@ -128,28 +124,39 @@ public class Ibkr {
         return signalList;
     }
 
-    private Contract genContract(String symbol, String secType) {
-        AppConfig.SymbolConfig sc;
-        Optional<AppConfig.SymbolConfig> symbolItemOptional = config.getSymbols().stream()
-                .filter(item -> item.getSymbol().equals(symbol) && item.getSecType().equals(secType))
-                .findFirst();
-        if (symbolItemOptional.isPresent()) {
-            sc = symbolItemOptional.get();
-        } else {
-            logger.error("Can't find the configuration of symbol=" + symbol + ", secType=" + secType);
-            return null;
-        }
+    private void initSymbolStrategyHandlers() {
+        strategyHandlerMap = new HashMap<>();
+        for (AppConfig.SymbolConfig sc : config.getSymbols()) {
+            Strategy strategyHandler;
+            strategyHandler = new Sma(sc);
 
+/*
+            //兼容多策略
+            AppConfig.Strategy strategy = sc.getStrategy();
+            switch (strategy.getName()) {
+                case "SMA":
+                default:
+                    strategyHandler = new Sma(sc);
+                    break;
+            }
+
+ */
+            strategyHandlerMap.put(Utils.genKey(sc.getSymbol(), sc.getSecType()), strategyHandler);
+        }
+    }
+
+
+    private Contract genContract(AppConfig.SymbolConfig sc) {
         Contract contract = new Contract();
-        contract.symbol(symbol); // 设置合约标的
-        if (secType.equals("FUT")) {
-            contract.secType(Types.SecType.FUT);
-            contract.lastTradeDateOrContractMonth(sc.getLastTradeDateOrContractMonth());
-            contract.multiplier(sc.getMultiplier());
-        } else if (secType.equals("STK")) {
-            contract.secType(Types.SecType.STK);
-        } else if (secType.equals("CFD")) {
-            contract.secType(Types.SecType.CFD);
+        contract.symbol(sc.getSymbol()); // 设置合约标的
+        switch (sc.getSecType()) {
+            case "FUT" -> {
+                contract.secType(Types.SecType.FUT);
+                contract.lastTradeDateOrContractMonth(sc.getLastTradeDateOrContractMonth());
+                contract.multiplier(sc.getMultiplier());
+            }
+            case "STK" -> contract.secType(Types.SecType.STK);
+            case "CFD" -> contract.secType(Types.SecType.CFD);
         }
         contract.exchange(sc.getExchange()); // 设置交易所
         contract.primaryExch(sc.getPrimaryExchange());
@@ -157,26 +164,14 @@ public class Ibkr {
         return contract;
     }
 
-    private Strategy initStrategyHandler(String strategyStr) {
-        switch (strategyStr) {
-            case "SMA":
-            default:
-                return new Sma(config);
-        }
-    }
-
     private void sub5sBars() {
         try {
-            Map<String, Integer> barSblReqIdMap = new HashMap<>();
-            for (AppConfig.SymbolConfig symbolConfig : config.getSymbols()) {
-                String symbol = symbolConfig.getSymbol();
-                String secType = symbolConfig.getSecType();
-                Contract contract = genContract(symbol, secType);
+            for (AppConfig.SymbolConfig sc : config.getSymbols()) {
+                Contract contract = genContract(sc);
                 ic.reqContractDetails(contract, new ContractDetailsHandler());
                 boolean rthOnly = false;
                 int reqId = ic.reqRealTimeBars(contract, Types.WhatToShow.TRADES, rthOnly, realTimeBarHandler);
-                barSblReqIdMap.put(Utils.genKey(symbol, secType), reqId);
-                realTimeBarHandler.setSblReqIdMap(barSblReqIdMap);
+                realTimeBarHandler.bindReqIdKey(Utils.genKey(sc.getSymbol(), sc.getSecType()), reqId);
             }
         } catch (Exception e) {
             logger.error("failed to subscribe 5s bar info, err:" + e.getMessage());
@@ -186,12 +181,10 @@ public class Ibkr {
     private void subMktData() {
         try {
             for (AppConfig.SymbolConfig sc : config.getSymbols()) {
-                String symbol = sc.getSymbol();
-                String secType = sc.getSecType();
-                Contract contract = genContract(symbol, secType);
+                Contract contract = genContract(sc);
                 // contract, genericTickList, snapshot, regulatorySnapshot, ITopMktDataHandler
                 int reqId = ic.reqTopMktData(contract, "", false, false, topMktDataHandler);
-                topMktDataHandler.bindReqIdSymbol(symbol, secType, reqId);
+                topMktDataHandler.bindReqIdKey(Utils.genKey(sc.getSymbol(), sc.getSecType()), reqId);
             }
         } catch (Exception e) {
             logger.error("failed to subscribe market ticker info, err:" + e.getMessage());

@@ -6,7 +6,6 @@ import java.util.List;
 
 @Data
 public class AppConfig {
-    private Http http;
     private Database database;
     private Redis redis;
     private Tws tws;
@@ -64,6 +63,7 @@ public class AppConfig {
         private String symbol;
         private String secType;
         private int orderSize;
+        private int maxPortfolioPositions;
     }
 
     @Data
@@ -87,5 +87,6 @@ public class AppConfig {
         private Rewrite rewrite;
         // 如果存在就同时发送其他contract
         private Parallel parallel;
+        private Http http;
     }
 }

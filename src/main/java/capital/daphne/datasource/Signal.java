@@ -17,6 +17,5 @@ public class Signal {
     private double wap;
     private Strategy.TradeActionType side;
     private int quantity;
-    private AppConfig.Rewrite rewrite;
-    private AppConfig.Parallel parallel;
+    private AppConfig.SymbolConfig symbolConfig;
 }

@@ -31,36 +31,38 @@ public class Main {
         }
 
         ObjectMapper objectMapper = new ObjectMapper();
-        AppConfig appConfig;
+        AppConfig appConf;
         try {
-            appConfig = objectMapper.readValue(new File(configFile), AppConfig.class);
+            appConf = objectMapper.readValue(new File(configFile), AppConfig.class);
         } catch (IOException e) {
             logger.error("Can not load config file: " + e.getMessage());
             return;
         }
 
         logger.info("initialize database handler: mysql");
+        AppConfig.Database dbConf = appConf.getDatabase();
         Db db = new Db(
-                appConfig.getDatabase().getHost(),
-                appConfig.getDatabase().getPort(),
-                appConfig.getDatabase().getUser(),
-                appConfig.getDatabase().getPassword(),
-                appConfig.getDatabase().getDbname()
+                dbConf.getHost(),
+                dbConf.getPort(),
+                dbConf.getUser(),
+                dbConf.getPassword(),
+                dbConf.getDbname()
         );
 
         logger.info("initialize cache handler: redis");
+        AppConfig.Redis redisConf = appConf.getRedis();
         JedisUtil.initializeJedisPool(
-                appConfig.getRedis().getHost(),
-                appConfig.getRedis().getPort(),
-                appConfig.getRedis().getPassword()
+                redisConf.getHost(),
+                redisConf.getPort(),
+                redisConf.getPassword()
         );
 
         logger.info("initialize datasource handler: ibkr");
-        Ibkr ibkr = new Ibkr(appConfig, db);
+        Ibkr ibkr = new Ibkr(appConf, db);
         ibkr.connectTWS();
 
         logger.info("initialize wap data");
-        Map<String, double[]> symbolWapMap = db.loadWapCache(appConfig.getSymbols());
+        Map<String, double[]> symbolWapMap = db.loadWapCache(appConf.getSymbols());
         ibkr.initWap(symbolWapMap);
 
         logger.info("start IBKR watcher: tickers and 5s bars");
@@ -77,7 +79,6 @@ public class Main {
                     if (signalList.size() > 0) {
                         for (Signal tradeSignal : signalList) {
                             if (tradeSignal.isValid()) {
-
                                 UUID uuid = UUID.randomUUID();
                                 tradeSignal.setUuid(uuid.toString());
                                 tradeSignal.setQuantity(tradeSignal.getQuantity());
@@ -90,12 +91,14 @@ public class Main {
                                     tradeSignal.setPrice(tradeSignal.getBidPrice());
                                 }
 
+                                AppConfig.SymbolConfig sc = tradeSignal.getSymbolConfig();
                                 // 如果需要根据当前信号，去交易其他contract，根据rewrite信息进行改变，如根据ES的信号，下MES的单
-                                AppConfig.Rewrite rewrite = tradeSignal.getRewrite();
+                                AppConfig.Rewrite rewrite = sc.getRewrite();
                                 if (rewrite != null) {
                                     tradeSignal.setSymbol(rewrite.getSymbol());
                                     tradeSignal.setSecType(rewrite.getSecType());
-                                    tradeSignal.setQuantity(rewrite.getOrderSize());
+                                    int quantity = tradeSignal.getQuantity() > 0 ? rewrite.getOrderSize() : -rewrite.getOrderSize();
+                                    tradeSignal.setQuantity(quantity);
                                 }
 
                                 // 记录信号
@@ -104,19 +107,19 @@ public class Main {
                                 // 发送下单信号
                                 String traderSrvUrl = String.format(
                                         "http://%s:%d/%s",
-                                        appConfig.getHttp().getHost(),
-                                        appConfig.getHttp().getPort(),
-                                        appConfig.getHttp().getPath()
+                                        sc.getHttp().getHost(),
+                                        sc.getHttp().getPort(),
+                                        sc.getHttp().getPath()
                                 );
                                 sendSignal(traderSrvUrl, tradeSignal);
 
                                 // 如果需要根据当前信号，同时去交易其他交易对，根据parallel进行改变，如根据SPY.STK的信号，同时下单SPY.CDF
-                                AppConfig.Parallel parallel = tradeSignal.getParallel();
+                                AppConfig.Parallel parallel = sc.getParallel();
                                 if (parallel != null) {
                                     tradeSignal.setSymbol(parallel.getSymbol());
                                     tradeSignal.setSecType(parallel.getSecType());
-                                    tradeSignal.setQuantity(parallel.getOrderSize());
-
+                                    int quantity = tradeSignal.getQuantity() > 0 ? parallel.getOrderSize() : -parallel.getOrderSize();
+                                    tradeSignal.setQuantity(quantity);
                                     db.addSignal(tradeSignal);
                                     sendSignal(traderSrvUrl, tradeSignal);
                                 }
@@ -136,11 +139,7 @@ public class Main {
             }
         }
     }
-
-    // 判断是否是美东时间，周一到周五的早上9:30到下午4:00之间（开盘期间）
-    // todo 后续考虑把节假日也加上
-
-
+    
     private static long getSleepMillis(long endTime) {
         long seconds = (endTime / 1000) % 60;
         long millis = endTime % 1000;

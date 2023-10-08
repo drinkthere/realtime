@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Data
 class BarInfo {
@@ -34,33 +33,32 @@ class BarInfo {
 public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
     private static final Logger logger = LoggerFactory.getLogger(RealTimeBarHandler.class);
     private static final int maxWrongWapNum = 2;
-    private Map<String, List<BarInfo>> sblBarListMap;
-    private Db db;
-    private Map<String, double[]> sblWapMap;
-    private Map<String, Integer> sblReqIdMap;
-    private Map<String, Integer> sblMinBarNumMap;
-    private TopMktDataHandler topMktDataHandler;
+    private final Map<Integer, String> reqIdKeyMap;
+    private final Map<String, List<BarInfo>> keyBarListMap;
+    private final Db db;
+    private final Map<String, Integer> keyMinBarNumMap;
+    private Map<String, double[]> keyWapMap;
     private int wrongWapNum;
 
-    public RealTimeBarHandler(Db db, List<AppConfig.SymbolConfig> symbolsConfig, TopMktDataHandler topMktDataHandler) {
+    public RealTimeBarHandler(Db db, List<AppConfig.SymbolConfig> symbolsConfig) {
         this.db = db;
-        sblBarListMap = new HashMap<>();
-        sblMinBarNumMap = new HashMap<>();
+        keyBarListMap = new HashMap<>();
+        keyMinBarNumMap = new HashMap<>();
         for (AppConfig.SymbolConfig sc : symbolsConfig) {
             String key = Utils.genKey(sc.getSymbol(), sc.getSecType());
-            sblBarListMap.put(key, new ArrayList<>());
-            sblMinBarNumMap.put(key, sc.getStrategy().getNumStatsBars() + 1);
+            keyBarListMap.put(key, new ArrayList<>());
+            keyMinBarNumMap.put(key, sc.getStrategy().getNumStatsBars() + 1);
         }
-        this.topMktDataHandler = topMktDataHandler;
+        reqIdKeyMap = new HashMap<>();
         wrongWapNum = 0;
     }
 
     public void initWap(Map<String, double[]> sblWapMap) {
-        this.sblWapMap = sblWapMap;
+        this.keyWapMap = sblWapMap;
     }
 
-    public void setSblReqIdMap(Map<String, Integer> sblReqIdMap) {
-        this.sblReqIdMap = sblReqIdMap;
+    public void bindReqIdKey(String key, int reqId) {
+        reqIdKeyMap.put(reqId, key);
     }
 
     @Override
@@ -70,11 +68,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
             logger.warn(String.format("bar data is invalid: time=%s", bar.time()));
             return;
         }
-
-        String key = sblReqIdMap.entrySet().stream()
-                .filter(entry -> entry.getValue().equals(reqId))
-                .map(Map.Entry::getKey)
-                .collect(Collectors.joining(", "));
+        String key = reqIdKeyMap.get(reqId);
 
         double vwap = Double.parseDouble(bar.wap().toString());
         double wap;
@@ -93,11 +87,13 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         } else {
             wap = vwap;
         }
+
         // 走到这里，说明wap没问题，重置wrongWapNum
         wrongWapNum = 0;
         logger.debug("o:" + bar.open() + "|h:" + bar.high() + "|l:" + bar.low() + "|c:" + bar.close() + "|vw:" + vwap + "|cw:" + wap + "|v:" + bar.volume());
+
         boolean dataUpdate = false;
-        double[] wapArr = sblWapMap.get(key);
+        double[] wapArr = keyWapMap.get(key);
 
         //wapArr[0 -> prevMaxWap, 1 -> prevMinWap, 2 -> currMaxWap, 3 -> currMinWap]
         double currMaxWap = wapArr[2];
@@ -112,7 +108,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
         wapArr[2] = currMaxWap;
         wapArr[3] = currMinWap;
-        sblWapMap.put(key, wapArr);
+        keyWapMap.put(key, wapArr);
 
         if (dataUpdate) {
             // 更新当前交易日的max_wap和min_wap
@@ -123,9 +119,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
 
         BarInfo barInfo = new BarInfo();
-        List<BarInfo> barList = sblBarListMap.get(key);
-//        logger.info(sblBarListMap.toString());
-//        logger.info(reqId + " " + symbol + " " + barList);
+        List<BarInfo> barList = keyBarListMap.get(key);
         try {
             String date = parseTime(bar.time());
             barInfo.setDate(date);
@@ -139,20 +133,19 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
         }
 
         // 只保留2倍minNumOfBar的bar数据
-        int minBarNum = sblMinBarNumMap.get(key);
+        int minBarNum = keyMinBarNumMap.get(key);
         int maxKeepNumOfBars = 2 * minBarNum;
         if (barList.size() > maxKeepNumOfBars) {
             int elementsToRemove = barList.size() - maxKeepNumOfBars;
             barList.subList(0, elementsToRemove).clear();
         }
         //logger.info(reqId + " | " + symbol + " " + barList);
-        sblBarListMap.put(key, barList);
+        keyBarListMap.put(key, barList);
     }
 
-    synchronized public Table getDataTable(String symbol, String secType) {
-        String key = Utils.genKey(symbol, secType);
-        int minBarNum = sblMinBarNumMap.get(key);
-        List<BarInfo> barList = sblBarListMap.get(key);
+    synchronized public Table getDataTable(String key) {
+        int minBarNum = keyMinBarNumMap.get(key);
+        List<BarInfo> barList = keyBarListMap.get(key);
         logger.debug("size=" + barList.size() + ", minNumOfBars=" + minBarNum);
         if (barList.size() < minBarNum) {
             return null;
@@ -181,8 +174,7 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
 
         // 使用自定义的DateTimeFormatter格式化为指定格式
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
-        String formattedTime = zonedDateTime.format(formatter);
-        return formattedTime;
+        return zonedDateTime.format(formatter);
     }
 
     private double calVolatility(double wap, double[] wapArr) {
@@ -199,8 +191,8 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
     }
 
     synchronized private void clearBarList(String key) {
-        List<BarInfo> barList = sblBarListMap.get(key);
+        List<BarInfo> barList = keyBarListMap.get(key);
         barList.clear();
-        sblBarListMap.put(key, barList);
+        keyBarListMap.put(key, barList);
     }
 }

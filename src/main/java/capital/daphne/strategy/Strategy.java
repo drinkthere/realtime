@@ -4,7 +4,7 @@ import tech.tablesaw.api.Table;
 
 public interface Strategy {
 
-    public TradeActionType getSignalSide(String symbol, String secType, Table df, int position);
+    public TradeActionType getSignalSide(Table df, int position, int maxPosition);
 
     public enum TradeActionType {
         NO_ACTION, BUY, SELL;
