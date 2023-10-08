@@ -94,7 +94,7 @@ public class Ibkr {
                 logger.debug(bidPrice + " " + askPrice);
 
                 // 获取position信息
-                int[] positionArr = positionHandler.getSymbolPosition(sc);
+                int[] positionArr = positionHandler.getPosition(sc);
                 int position = positionArr[0];
                 int maxPosition = positionArr[1];
 
