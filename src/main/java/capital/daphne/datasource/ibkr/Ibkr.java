@@ -102,7 +102,7 @@ public class Ibkr {
                 Strategy strategyHandler = strategyHandlerMap.get(key);
                 Strategy.TradeActionType side = strategyHandler.getSignalSide(df, position, maxPosition);
                 if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
-                    logger.info("symbol=" + symbol + ", secType= " + secType + ", no action signal");
+                    logger.debug("symbol=" + symbol + ", secType= " + secType + ", no action signal");
                     continue;
                 }
 

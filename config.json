@@ -18,32 +18,33 @@
   },
   "symbols": [
     {
-      "symbol": "SPY",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "ARCA",
+      "symbol": "ES",
+      "secType": "FUT",
+      "lastTradeDateOrContractMonth": "20231215",
+      "multiplier": "50",
+      "exchange": "CME",
+      "primaryExchange": "CME",
       "currency": "USD",
       "strategy": {
         "name": "SMA",
         "portfolioRequiredToClose": false,
-        "maxPortfolioPositions": 500,
+        "maxPortfolioPositions": 5,
         "positionSignalMarginOffset": -0.00001,
         "minDurationAfterSignal": 5,
-        "orderSize": 100,
+        "orderSize": 1,
         "minIntervalBetweenSignal": 72,
         "numStatsBars": 18,
-        "signalMargin": 0.0005,
+        "signalMargin": 0.0001,
         "volatilityA": 0,
         "volatilityB": 60,
         "volatilityC": -100,
         "hardLimit": true
       },
-      "parallel": {
-        "symbol": "SPY",
-        "secType": "CFD",
-        "orderSize": 200
+      "rewrite": {
+        "symbol": "MES",
+        "secType": "FUT",
+        "orderSize": 1,
+        "maxPortfolioPositions": 5
       },
       "http": {
         "host": "127.0.0.1",

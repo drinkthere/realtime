@@ -111,6 +111,7 @@ public class Main {
                                         sc.getHttp().getPort(),
                                         sc.getHttp().getPath()
                                 );
+                                logger.debug(traderSrvUrl + " " + tradeSignal);
                                 sendSignal(traderSrvUrl, tradeSignal);
 
                                 // 如果需要根据当前信号，同时去交易其他交易对，根据parallel进行改变，如根据SPY.STK的信号，同时下单SPY.CDF

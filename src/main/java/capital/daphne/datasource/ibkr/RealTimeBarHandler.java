@@ -5,7 +5,6 @@ import capital.daphne.Db;
 import capital.daphne.utils.Utils;
 import com.ib.client.Decimal;
 import com.ib.controller.Bar;
-import com.mysql.cj.util.StringUtils;
 import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -112,9 +111,9 @@ public class RealTimeBarHandler implements IbkrController.IRealTimeBarHandler {
 
         if (dataUpdate) {
             // 更新当前交易日的max_wap和min_wap
-            List<String> splitArr = StringUtils.split(key, ".", true);
-            String symbol = splitArr.get(0);
-            String secType = splitArr.get(1);
+            String[] splitArr = key.split("\\.");
+            String symbol = splitArr[0];
+            String secType = splitArr[1];
             db.updateWapCache(symbol, secType, currMaxWap, currMinWap);
         }
 

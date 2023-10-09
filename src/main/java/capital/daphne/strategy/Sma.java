@@ -96,8 +96,8 @@ public class Sma implements Strategy {
                 Duration sellDuration = Duration.between(lastSellDateTime, datetime);
                 sellIntervalSeconds = sellDuration.getSeconds();
             }
-            logger.info(String.format("symbol=%s, secType=%s, vwap=%f, sma=%f, vwap<=sma*(1-buySignalMargin):%s, vwap >= sma * (1 + sellSignalMargin)：%s",
-                    sc.getSymbol(), sc.getSecType(), vwap, sma, vwap <= sma * (1 - buySignalMargin), vwap >= sma * (1 + sellSignalMargin)));
+            logger.info(String.format("symbol=%s, secType=%s, vwap=%f, <=sma*(1-bsm)=%f, >=sma*(1+ssm)=%f, %s, %s, sma=%f",
+                    sc.getSymbol(), sc.getSecType(), vwap, sma * (1 - buySignalMargin), sma * (1 + sellSignalMargin), vwap <= sma * (1 - buySignalMargin), vwap >= sma * (1 + sellSignalMargin), sma));
             if (vwap <= sma * (1 - buySignalMargin)
                     && (lastAction.equals(TradeActionType.NO_ACTION) || lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())
                     && (position < maxPosition || !strategyConf.isHardLimit())) {
