@@ -123,11 +123,11 @@ public class TopMktDataHandler implements IbkrController.ITopMktDataHandler {
     private void updateTickerInRedis(String key, TickType type, double price) {
         JedisPool jedisPool = JedisUtil.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
-            // 更新ticker信息，设置10s过期
+            // 更新ticker信息，设置30s过期
             String redisKey = key + "." + type;
             String val = String.valueOf(price);
             jedis.set(redisKey, val);
-            long timestamp = System.currentTimeMillis() / 1000 + 10;
+            long timestamp = System.currentTimeMillis() / 1000 + 30;
             jedis.expireAt("mykey", timestamp);
 
             String[] splitArr = key.split("\\.");
