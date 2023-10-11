@@ -12,7 +12,6 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -60,10 +59,6 @@ public class Main {
         logger.info("initialize datasource handler: ibkr");
         Ibkr ibkr = new Ibkr(appConf, db);
         ibkr.connectTWS();
-
-        logger.info("initialize wap data");
-        Map<String, double[]> symbolWapMap = db.loadWapCache(appConf.getSymbols());
-        ibkr.initWap(symbolWapMap);
 
         logger.info("start IBKR watcher: tickers and 5s bars");
         ibkr.startTwsWatcher();

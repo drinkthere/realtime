@@ -14,7 +14,7 @@
   "tws": {
     "host": "127.0.0.1",
     "port": 7497,
-    "clientId": 5
+    "clientId": 7
   },
   "symbols": [
     {
@@ -45,40 +45,6 @@
         "secType": "FUT",
         "orderSize": 1,
         "maxPortfolioPositions": 5
-      },
-      "http": {
-        "host": "127.0.0.1",
-        "port": 5500,
-        "path": "trade"
-      }
-    },
-    {
-      "symbol": "SPY",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "ARCA",
-      "currency": "USD",
-      "strategy": {
-        "name": "SMA",
-        "portfolioRequiredToClose": false,
-        "maxPortfolioPositions": 200,
-        "positionSignalMarginOffset": 0,
-        "minDurationAfterSignal": 5,
-        "orderSize": 100,
-        "minIntervalBetweenSignal": 72,
-        "numStatsBars": 18,
-        "signalMargin": 0.0002,
-        "volatilityA": 0,
-        "volatilityB": 150,
-        "volatilityC": 500,
-        "hardLimit": true
-      },
-      "parallel": {
-        "symbol": "SPY",
-        "secType": "CFD",
-        "orderSize": 200
       },
       "http": {
         "host": "127.0.0.1",
