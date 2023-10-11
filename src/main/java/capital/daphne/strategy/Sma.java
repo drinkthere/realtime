@@ -38,15 +38,115 @@ public class Sma implements Strategy {
 
     @Override
     public TradeActionType getSignalSide(Table inputDf, int position, int maxPosition) {
+        while (true) {
+            // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
+            int numStatsBars = strategyConf.getNumStatsBars();
+
+            // 先获取最新一行记录，得到当前bar时间，用来和上一次成交时间进行对比
+            Row row = inputDf.row(inputDf.rowCount() - 1);
+            String date_us = row.getString("date_us");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(date_us, formatter);
+            LocalDateTime latestBarTime = zonedDateTime.toLocalDateTime();
+
+            if (position > 0) {
+                // 没有上次购买记录，有残留仓位，跳出循环，走默认处理流程
+                if (lastBuyDateTime == null) {
+                    logger.info(String.format("%s.%s has legacy position = %d, route to default processing",
+                            sc.getSymbol(), sc.getSecType(), position));
+                    break;
+                }
+
+                Duration buyDuration = Duration.between(lastBuyDateTime, latestBarTime);
+                long buyIntervalSeconds = buyDuration.getSeconds();
+
+                // 当前时间跟上一次买单时间对比
+                if (buyIntervalSeconds < 30) {
+                    numStatsBars = (int) Math.round(numStatsBars / 2.0);
+                    double[] barData = genLatestBarData(numStatsBars, inputDf);
+                    double vwap = barData[0];
+                    double threshold = barData[1] * (1 + 0.0001); //暂时写死这个
+                    logger.info(String.format("%s|%s|closeLong|<30|%f|%f|%s",
+                            sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap >= threshold));
+                    if (vwap >= threshold) {
+                        lastAction = TradeActionType.SELL;
+                        lastSellDateTime = latestBarTime;
+                        return lastAction;
+                    }
+                } else if (buyIntervalSeconds < 150) {
+                    numStatsBars = (int) Math.round(numStatsBars / 1.5);
+                    double[] barData = genLatestBarData(numStatsBars, inputDf);
+                    double vwap = barData[0];
+                    double threshold = barData[1] * (1 + 0.0002); //暂时写死这个
+                    logger.info(String.format("%s|%s|closeLong|x<150|%f|%f|%s",
+                            sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap >= threshold));
+                    if (vwap >= threshold) {
+                        lastAction = TradeActionType.SELL;
+                        lastSellDateTime = latestBarTime;
+                        return lastAction;
+                    }
+                }
+                break;
+            } else if (position < 0) {
+                // 没有上次做空记录，但有残留仓位，跳出循环，走默认处理流程
+                if (lastSellDateTime == null) {
+                    logger.info(String.format("%s.%s has legacy position = %d, route to default processing",
+                            sc.getSymbol(), sc.getSecType(), position));
+                    break;
+                }
+
+                Duration sellDuration = Duration.between(lastSellDateTime, latestBarTime);
+                long sellIntervalSeconds = sellDuration.getSeconds();
+
+                if (sellIntervalSeconds < 30) {
+                    numStatsBars = (int) Math.round(numStatsBars / 2.0);
+                    double[] barData = genLatestBarData(numStatsBars, inputDf);
+                    double vwap = barData[0];
+                    double threshold = barData[1] * (1 - 0.0001); //暂时写死这个
+                    logger.info(String.format("%s|%s|closeShort|<30|%f|%f|%s",
+                            sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap <= threshold));
+                    if (vwap <= threshold) {
+                        lastAction = TradeActionType.BUY;
+                        lastBuyDateTime = latestBarTime;
+                        return lastAction;
+                    }
+                } else if (sellIntervalSeconds < 150) {
+                    numStatsBars = (int) Math.round(numStatsBars / 1.5);
+                    double[] barData = genLatestBarData(numStatsBars, inputDf);
+                    double vwap = barData[0];
+                    double threshold = barData[1] * (1 - 0.0002); //暂时写死这个
+                    logger.info(String.format("%s|%s|closeShort|<30|%f|%f|%s",
+                            sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap <= threshold));
+                    if (vwap <= threshold) {
+                        lastAction = TradeActionType.BUY;
+                        lastBuyDateTime = latestBarTime;
+                        return lastAction;
+                    }
+                }
+                break;
+            }
+            break;
+        }
+
+        // 走默认流程
         // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
         int numStatsBars = strategyConf.getNumStatsBars();
         String benchmark = "sma" + numStatsBars;
         Table df = addBenchMarkColumn(inputDf, benchmark, numStatsBars);
         Row latestBar = df.row(df.rowCount() - 1);
-
         double volatility = latestBar.getDouble("volatility");
         double volatilityMultiplier = calToVolatilityMultiplier(volatility);
         return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
+    }
+
+    private double[] genLatestBarData(int numStatsBars, Table inputDf) {
+        String benchmark = "sma" + numStatsBars;
+        Table df = addBenchMarkColumn(inputDf, benchmark, numStatsBars);
+        Row latestBar = df.row(df.rowCount() - 1);
+        double vwap = latestBar.getDouble("vwap");
+        double sma = latestBar.getDouble(benchmark);
+
+        return new double[]{vwap, sma};
     }
 
     private Table addBenchMarkColumn(Table df, String benchmark, int numStatsBars) {
@@ -96,16 +196,19 @@ public class Sma implements Strategy {
                 Duration sellDuration = Duration.between(lastSellDateTime, datetime);
                 sellIntervalSeconds = sellDuration.getSeconds();
             }
-            logger.info(String.format("symbol=%s, secType=%s, vwap=%f, <=sma*(1-bsm)=%f, >=sma*(1+ssm)=%f, %s, %s, sma=%f",
-                    sc.getSymbol(), sc.getSecType(), vwap, sma * (1 - buySignalMargin), sma * (1 + sellSignalMargin), vwap <= sma * (1 - buySignalMargin), vwap >= sma * (1 + sellSignalMargin), sma));
-            if (vwap <= sma * (1 - buySignalMargin)
+
+            double longThreshold = sma * (1 - buySignalMargin);
+            double shortThreshold = sma * (1 + sellSignalMargin);
+            logger.info(String.format("%s|%s|place|%f|<=%f|>=%f|%s|%s",
+                    sc.getSymbol(), sc.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold));
+            if (vwap <= longThreshold
                     && (lastAction.equals(TradeActionType.NO_ACTION) || lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())
                     && (position < maxPosition || !strategyConf.isHardLimit())) {
                 action = TradeActionType.BUY;
                 lastAction = TradeActionType.BUY;
                 lastBuyDateTime = datetime;
 
-            } else if (vwap >= sma * (1 + sellSignalMargin)
+            } else if (vwap >= shortThreshold
                     && (lastAction.equals(TradeActionType.NO_ACTION) || lastAction.equals(TradeActionType.BUY) || sellIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())
                     && (position > (-maxPosition) || !strategyConf.isHardLimit())) {
                 action = TradeActionType.SELL;

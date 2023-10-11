@@ -13,12 +13,6 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
     <dependencies>
         <dependency>
             <groupId>tech.tablesaw</groupId>
@@ -39,12 +33,12 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.2.6</version> <!-- 使用最新版本 -->
+            <version>1.2.9</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.12.5</version>
+            <version>2.12.7.1</version>
         </dependency>
         <dependency>
             <groupId>javax.annotation</groupId>
@@ -54,18 +48,12 @@
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <version>20210307</version> <!-- 使用最新版本 -->
+            <version>20230227</version>
         </dependency>
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>8.0.27</version> <!-- 使用最新版本 -->
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>RELEASE</version>
-            <scope>compile</scope>
+            <version>8.0.28</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
