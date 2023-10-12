@@ -49,6 +49,18 @@ public class Sma implements Strategy {
             ZonedDateTime zonedDateTime = ZonedDateTime.parse(date_us, formatter);
             LocalDateTime latestBarTime = zonedDateTime.toLocalDateTime();
 
+            long buyIntervalSeconds = 0L;
+            long sellIntervalSeconds = 0L;
+            if (lastBuyDateTime != null) {
+                Duration buyDuration = Duration.between(lastBuyDateTime, latestBarTime);
+                buyIntervalSeconds = buyDuration.getSeconds();
+            }
+
+            if (lastSellDateTime != null) {
+                Duration sellDuration = Duration.between(lastSellDateTime, latestBarTime);
+                sellIntervalSeconds = sellDuration.getSeconds();
+            }
+
             if (position > 0) {
                 // 没有上次购买记录，有残留仓位，跳出循环，走默认处理流程
                 if (lastBuyDateTime == null) {
@@ -56,9 +68,6 @@ public class Sma implements Strategy {
                             sc.getSymbol(), sc.getSecType(), position));
                     break;
                 }
-
-                Duration buyDuration = Duration.between(lastBuyDateTime, latestBarTime);
-                long buyIntervalSeconds = buyDuration.getSeconds();
 
                 // 当前时间跟上一次买单时间对比
                 if (buyIntervalSeconds < 30) {
@@ -68,7 +77,7 @@ public class Sma implements Strategy {
                     double threshold = barData[1] * (1 + 0.0001); //暂时写死这个
                     logger.info(String.format("%s|%s|closeLong|<30|%f|%f|%s",
                             sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap >= threshold));
-                    if (vwap >= threshold) {
+                    if (vwap >= threshold && (lastAction.equals(TradeActionType.BUY) || sellIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())) {
                         lastAction = TradeActionType.SELL;
                         lastSellDateTime = latestBarTime;
                         return lastAction;
@@ -80,7 +89,7 @@ public class Sma implements Strategy {
                     double threshold = barData[1] * (1 + 0.0002); //暂时写死这个
                     logger.info(String.format("%s|%s|closeLong|x<150|%f|%f|%s",
                             sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap >= threshold));
-                    if (vwap >= threshold) {
+                    if (vwap >= threshold && (lastAction.equals(TradeActionType.BUY) || sellIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())) {
                         lastAction = TradeActionType.SELL;
                         lastSellDateTime = latestBarTime;
                         return lastAction;
@@ -95,9 +104,6 @@ public class Sma implements Strategy {
                     break;
                 }
 
-                Duration sellDuration = Duration.between(lastSellDateTime, latestBarTime);
-                long sellIntervalSeconds = sellDuration.getSeconds();
-
                 if (sellIntervalSeconds < 30) {
                     numStatsBars = (int) Math.round(numStatsBars / 2.0);
                     double[] barData = genLatestBarData(numStatsBars, inputDf);
@@ -105,7 +111,7 @@ public class Sma implements Strategy {
                     double threshold = barData[1] * (1 - 0.0001); //暂时写死这个
                     logger.info(String.format("%s|%s|closeShort|<30|%f|%f|%s",
                             sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap <= threshold));
-                    if (vwap <= threshold) {
+                    if (vwap <= threshold && (lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())) {
                         lastAction = TradeActionType.BUY;
                         lastBuyDateTime = latestBarTime;
                         return lastAction;
@@ -117,9 +123,9 @@ public class Sma implements Strategy {
                     double threshold = barData[1] * (1 - 0.0002); //暂时写死这个
                     logger.info(String.format("%s|%s|closeShort|<30|%f|%f|%s",
                             sc.getSymbol(), sc.getSecType(), vwap, threshold, vwap <= threshold));
-                    if (vwap <= threshold) {
-                        lastAction = TradeActionType.BUY;
+                    if (vwap <= threshold && (lastAction.equals(TradeActionType.SELL) || buyIntervalSeconds >= strategyConf.getMinIntervalBetweenSignal())) {
                         lastBuyDateTime = latestBarTime;
+                        lastAction = TradeActionType.BUY;
                         return lastAction;
                     }
                 }

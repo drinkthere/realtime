@@ -18,33 +18,68 @@
   },
   "symbols": [
     {
-      "symbol": "SPY",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "ARCA",
+      "symbol": "ES",
+      "secType": "FUT",
+      "lastTradeDateOrContractMonth": "20231215",
+      "multiplier": "50",
+      "exchange": "CME",
+      "primaryExchange": "CME",
       "currency": "USD",
       "strategy": {
         "name": "SMA",
         "portfolioRequiredToClose": true,
-        "maxPortfolioPositions": 300,
-        "positionSignalMarginOffset": 0,
+        "maxPortfolioPositions": 3,
+        "positionSignalMarginOffset": 0.0003,
         "minDurationAfterSignal": 5,
-        "orderSize": 100,
+        "orderSize": 1,
         "minIntervalBetweenSignal": 15,
         "numStatsBars": 8,
-        "signalMargin": 0.0003,
+        "signalMargin": 0.0004,
         "volatilityA": 0,
         "volatilityB": 30,
         "volatilityC": 0,
         "hardLimit": true
       },
       "rewrite": {
-        "symbol": "SPY",
-        "secType": "CFD",
-        "orderSize": 200,
-        "maxPortfolioPositions": 600
+        "symbol": "MES",
+        "secType": "FUT",
+        "orderSize": 1,
+        "maxPortfolioPositions": 3
+      },
+      "http": {
+        "host": "127.0.0.1",
+        "port": 5500,
+        "path": "trade"
+      }
+    },
+    {
+      "symbol": "NQ",
+      "secType": "FUT",
+      "lastTradeDateOrContractMonth": "20231215",
+      "multiplier": "20",
+      "exchange": "CME",
+      "primaryExchange": "CME",
+      "currency": "USD",
+      "strategy": {
+        "name": "SMA",
+        "portfolioRequiredToClose": true,
+        "maxPortfolioPositions": 3,
+        "positionSignalMarginOffset": 0.0003,
+        "minDurationAfterSignal": 5,
+        "orderSize": 1,
+        "minIntervalBetweenSignal": 15,
+        "numStatsBars": 8,
+        "signalMargin": 0.0004,
+        "volatilityA": 0,
+        "volatilityB": 30,
+        "volatilityC": 0,
+        "hardLimit": true
+      },
+      "rewrite": {
+        "symbol": "MNQ",
+        "secType": "FUT",
+        "orderSize": 1,
+        "maxPortfolioPositions": 3
       },
       "http": {
         "host": "127.0.0.1",
