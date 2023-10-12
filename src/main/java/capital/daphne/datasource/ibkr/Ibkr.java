@@ -14,10 +14,7 @@ import org.slf4j.LoggerFactory;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 public class Ibkr {
@@ -65,51 +62,73 @@ public class Ibkr {
             String symbol = sc.getSymbol();
             String secType = sc.getSecType();
             String key = Utils.genKey(symbol, secType);
-            if (secType.equals("FUT") || Utils.isMarketOpen()) {
-                Signal signal = new Signal();
-                signal.setValid(false);
-
-                // 获取5s bar信息
-                Table df = barService.getDataTable(key, sc.getStrategy().getNumStatsBars());
-                if (df == null) {
-                    logger.info("symbol=" + symbol + ", secType= " + secType + ", dataframe is not ready");
-                    continue;
-                }
-
-                // 获取position信息
-                int[] positionArr = positionHandler.getPosition(sc);
-                int position = positionArr[0];
-                int maxPosition = positionArr[1];
-
-                // 判断是否要下单
-                Strategy strategyHandler = strategyHandlerMap.get(key);
-                Strategy.TradeActionType side = strategyHandler.getSignalSide(df, position, maxPosition);
-                if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
-                    logger.info("symbol=" + symbol + ", secType= " + secType + ", no action signal");
-                    continue;
-                }
-
-                // 获取当前bid和ask信息
-                double bidPrice = tickerService.getPrice(key, TickType.BID);
-                double askPrice = tickerService.getPrice(key, TickType.ASK);
-                logger.info(bidPrice + " " + askPrice);
-
-                Row latestBar = df.row(df.rowCount() - 1);
-                signal.setValid(true);
-                signal.setSymbol(symbol);
-                signal.setSecType(secType);
-                signal.setSide(side);
-                signal.setBidPrice(bidPrice);
-                signal.setAskPrice(askPrice);
-                signal.setWap(latestBar.getDouble("vwap"));
-                signal.setQuantity(sc.getStrategy().getOrderSize());
-                signal.setSymbolConfig(sc);
-                signalList.add(signal);
-            } else {
-                logger.info("market is not open");
-            }
+            Signal tradeSignal = getTradeSignal(key);
+            signalList.add(tradeSignal);
         }
         return signalList;
+    }
+
+    public Signal getTradeSignal(String msg) {
+        Signal signal = new Signal();
+        signal.setValid(false);
+
+        // 更新当前交易日的max_wap和min_wap
+        String[] splitArr = msg.split("\\.");
+        String symbol = splitArr[0];
+        String secType = splitArr[1];
+        AppConfig.SymbolConfig sc;
+        Optional<AppConfig.SymbolConfig> symbolItemOptional = config.getSymbols().stream()
+                .filter(item -> item.getSymbol().equals(symbol) && item.getSecType().equals(secType))
+                .findFirst();
+        if (symbolItemOptional.isPresent()) {
+            sc = symbolItemOptional.get();
+        } else {
+            logger.error("Can't find the configuration of symbol=" + symbol + ", secType=" + secType);
+            return signal;
+        }
+
+        String key = Utils.genKey(symbol, secType);
+        // FUT全天交易，STK和CDF在正常交易区间交易
+        if (secType.equals("FUT") || Utils.isMarketOpen()) {
+            // 获取5s bar信息
+            Table df = barService.getDataTable(key, sc.getStrategy().getNumStatsBars());
+            if (df == null) {
+                logger.info(msg + ", dataframe is not ready");
+                return signal;
+            }
+
+            // 获取position信息
+            int[] positionArr = positionHandler.getPosition(sc);
+            int position = positionArr[0];
+            int maxPosition = positionArr[1];
+
+            // 判断是否要下单
+            Strategy strategyHandler = strategyHandlerMap.get(key);
+            Strategy.TradeActionType side = strategyHandler.getSignalSide(df, position, maxPosition);
+            if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
+                logger.info(msg + ", no action signal");
+                return signal;
+            }
+
+            // 获取当前bid和ask信息
+            double bidPrice = tickerService.getPrice(key, TickType.BID);
+            double askPrice = tickerService.getPrice(key, TickType.ASK);
+            logger.info(bidPrice + " " + askPrice);
+
+            Row latestBar = df.row(df.rowCount() - 1);
+            signal.setValid(true);
+            signal.setSymbol(symbol);
+            signal.setSecType(secType);
+            signal.setSide(side);
+            signal.setBidPrice(bidPrice);
+            signal.setAskPrice(askPrice);
+            signal.setWap(latestBar.getDouble("vwap"));
+            signal.setQuantity(sc.getStrategy().getOrderSize());
+            signal.setSymbolConfig(sc);
+        } else {
+            logger.info("market is not open");
+        }
+        return signal;
     }
 
     private void initSymbolStrategyHandlers() {

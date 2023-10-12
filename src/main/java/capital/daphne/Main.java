@@ -7,13 +7,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPubSub;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
@@ -63,91 +64,66 @@ public class Main {
         logger.info("start IBKR watcher: tickers and 5s bars");
         ibkr.startTwsWatcher();
 
-        // 5s一次检查是否需要触发买/卖信号
-        while (true) {
-            try {
-                long stime = System.currentTimeMillis();
-                long ssecond = (stime / 1000) % 60;
-                // 为了确保在收到回调消息后再处理，在1s、6s、11s.... 做处理
-                if (ssecond % 5 == 1) {
-                    List<Signal> signalList = ibkr.getTradeSignals();
-                    if (signalList.size() > 0) {
-                        for (Signal tradeSignal : signalList) {
-                            if (tradeSignal.isValid()) {
-                                UUID uuid = UUID.randomUUID();
-                                tradeSignal.setUuid(uuid.toString());
-                                tradeSignal.setQuantity(tradeSignal.getQuantity());
-                                if (tradeSignal.getSide().equals(Strategy.TradeActionType.BUY)) {
-                                    // buy时， price设置成ask price
-                                    tradeSignal.setPrice(tradeSignal.getAskPrice());
-                                } else if (tradeSignal.getSide().equals(Strategy.TradeActionType.SELL)) {
-                                    // sell时， price设置成bid price
-                                    tradeSignal.setQuantity(-tradeSignal.getQuantity());
-                                    tradeSignal.setPrice(tradeSignal.getBidPrice());
-                                }
+        logger.info("subscribe bar updated message to trigger signal checking logic");
+        JedisPool jedisPool = JedisUtil.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.subscribe(new JedisPubSub() {
+                @Override
+                public void onMessage(String channel, String message) {
+                    logger.info("Received message: " + message + " from channel: " + channel);
+                    Signal tradeSignal = ibkr.getTradeSignal(message);
+                    if (tradeSignal.isValid()) {
+                        UUID uuid = UUID.randomUUID();
+                        tradeSignal.setUuid(uuid.toString());
+                        tradeSignal.setQuantity(tradeSignal.getQuantity());
+                        if (tradeSignal.getSide().equals(Strategy.TradeActionType.BUY)) {
+                            // buy时， price设置成ask price
+                            tradeSignal.setPrice(tradeSignal.getAskPrice());
+                        } else if (tradeSignal.getSide().equals(Strategy.TradeActionType.SELL)) {
+                            // sell时， price设置成bid price
+                            tradeSignal.setQuantity(-tradeSignal.getQuantity());
+                            tradeSignal.setPrice(tradeSignal.getBidPrice());
+                        }
 
-                                AppConfig.SymbolConfig sc = tradeSignal.getSymbolConfig();
-                                // 如果需要根据当前信号，去交易其他contract，根据rewrite信息进行改变，如根据ES的信号，下MES的单
-                                AppConfig.Rewrite rewrite = sc.getRewrite();
-                                if (rewrite != null) {
-                                    tradeSignal.setSymbol(rewrite.getSymbol());
-                                    tradeSignal.setSecType(rewrite.getSecType());
-                                    int quantity = tradeSignal.getQuantity() > 0 ? rewrite.getOrderSize() : -rewrite.getOrderSize();
-                                    tradeSignal.setQuantity(quantity);
-                                }
+                        AppConfig.SymbolConfig sc = tradeSignal.getSymbolConfig();
+                        // 如果需要根据当前信号，去交易其他contract，根据rewrite信息进行改变，如根据ES的信号，下MES的单
+                        AppConfig.Rewrite rewrite = sc.getRewrite();
+                        if (rewrite != null) {
+                            tradeSignal.setSymbol(rewrite.getSymbol());
+                            tradeSignal.setSecType(rewrite.getSecType());
+                            int quantity = tradeSignal.getQuantity() > 0 ? rewrite.getOrderSize() : -rewrite.getOrderSize();
+                            tradeSignal.setQuantity(quantity);
+                        }
 
-                                // 记录信号
-                                db.addSignal(tradeSignal);
+                        // 记录信号
+                        db.addSignal(tradeSignal);
 
-                                // 发送下单信号
-                                String traderSrvUrl = String.format(
-                                        "http://%s:%d/%s",
-                                        sc.getHttp().getHost(),
-                                        sc.getHttp().getPort(),
-                                        sc.getHttp().getPath()
-                                );
-                                logger.debug(traderSrvUrl + " " + tradeSignal);
-                                sendSignal(traderSrvUrl, tradeSignal);
+                        // 发送下单信号
+                        String traderSrvUrl = String.format(
+                                "http://%s:%d/%s",
+                                sc.getHttp().getHost(),
+                                sc.getHttp().getPort(),
+                                sc.getHttp().getPath()
+                        );
+                        logger.debug(traderSrvUrl + " " + tradeSignal);
+                        sendSignal(traderSrvUrl, tradeSignal);
 
-                                // 如果需要根据当前信号，同时去交易其他交易对，根据parallel进行改变，如根据SPY.STK的信号，同时下单SPY.CDF
-                                AppConfig.Parallel parallel = sc.getParallel();
-                                if (parallel != null) {
-                                    tradeSignal.setSymbol(parallel.getSymbol());
-                                    tradeSignal.setSecType(parallel.getSecType());
-                                    int quantity = tradeSignal.getQuantity() > 0 ? parallel.getOrderSize() : -parallel.getOrderSize();
-                                    tradeSignal.setQuantity(quantity);
-                                    db.addSignal(tradeSignal);
-                                    sendSignal(traderSrvUrl, tradeSignal);
-                                }
-                            }
+                        // 如果需要根据当前信号，同时去交易其他交易对，根据parallel进行改变，如根据SPY.STK的信号，同时下单SPY.CDF
+                        AppConfig.Parallel parallel = sc.getParallel();
+                        if (parallel != null) {
+                            tradeSignal.setSymbol(parallel.getSymbol());
+                            tradeSignal.setSecType(parallel.getSecType());
+                            int quantity = tradeSignal.getQuantity() > 0 ? parallel.getOrderSize() : -parallel.getOrderSize();
+                            tradeSignal.setQuantity(quantity);
+                            db.addSignal(tradeSignal);
+                            sendSignal(traderSrvUrl, tradeSignal);
                         }
                     }
                 }
-
-                long etime = System.currentTimeMillis();
-                long sleepMillis = getSleepMillis(etime);
-                TimeUnit.MILLISECONDS.sleep(sleepMillis);
-
-            } catch (InterruptedException e) {
-                //e.printStackTrace();
-                logger.error("service interruption, error:" + e.getMessage());
-                return;
-            }
+            }, "barUpdateChannel");
+        } catch (Exception e) {
+            logger.error("barList update failed, error:" + e.getMessage());
         }
-    }
-
-    private static long getSleepMillis(long endTime) {
-        long seconds = (endTime / 1000) % 60;
-        long millis = endTime % 1000;
-        long sleepMillis;
-        if (seconds % 5 == 0) {
-            sleepMillis = 1000 * 1 - millis;
-        } else if (seconds % 5 == 1) {
-            sleepMillis = 1000 * 5 - millis;
-        } else {
-            sleepMillis = 1000 * (6 - seconds % 5) - millis;
-        }
-        return sleepMillis;
     }
 
     private static void sendSignal(String url, Signal signal) {
