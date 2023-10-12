@@ -33,4 +33,9 @@ public class Utils {
     public static String genKey(String symbol, String secType) {
         return symbol + "." + secType;
     }
+
+    public static String[] parseKey(String key) {
+        return key.split("\\.");
+
+    }
 }

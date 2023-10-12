@@ -18,10 +18,10 @@
   },
   "symbols": [
     {
-      "symbol": "ES",
+      "symbol": "MES",
       "secType": "FUT",
       "lastTradeDateOrContractMonth": "20231215",
-      "multiplier": "50",
+      "multiplier": "5",
       "exchange": "CME",
       "primaryExchange": "CME",
       "currency": "USD",
@@ -39,12 +39,6 @@
         "volatilityB": 30,
         "volatilityC": 0,
         "hardLimit": true
-      },
-      "rewrite": {
-        "symbol": "MES",
-        "secType": "FUT",
-        "orderSize": 1,
-        "maxPortfolioPositions": 3
       },
       "http": {
         "host": "127.0.0.1",
@@ -75,11 +69,34 @@
         "volatilityC": 0,
         "hardLimit": true
       },
-      "rewrite": {
-        "symbol": "MNQ",
-        "secType": "FUT",
+      "http": {
+        "host": "127.0.0.1",
+        "port": 5500,
+        "path": "trade"
+      }
+    },
+    {
+      "symbol": "MNQ",
+      "secType": "FUT",
+      "lastTradeDateOrContractMonth": "20231215",
+      "multiplier": "2",
+      "exchange": "CME",
+      "primaryExchange": "CME",
+      "currency": "USD",
+      "strategy": {
+        "name": "SMA",
+        "portfolioRequiredToClose": true,
+        "maxPortfolioPositions": 3,
+        "positionSignalMarginOffset": 0.0003,
+        "minDurationAfterSignal": 5,
         "orderSize": 1,
-        "maxPortfolioPositions": 3
+        "minIntervalBetweenSignal": 15,
+        "numStatsBars": 8,
+        "signalMargin": 0.0004,
+        "volatilityA": 0,
+        "volatilityB": 30,
+        "volatilityC": 0,
+        "hardLimit": true
       },
       "http": {
         "host": "127.0.0.1",

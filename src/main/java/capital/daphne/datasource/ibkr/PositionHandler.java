@@ -36,13 +36,7 @@ public class PositionHandler implements IbkrController.IPositionHandler {
     public int[] getPosition(AppConfig.SymbolConfig sc) {
         String key = Utils.genKey(sc.getSymbol(), sc.getSecType());
         int maxPortfolioPositions = sc.getStrategy().getMaxPortfolioPositions();
-
-        AppConfig.Rewrite rewrite = sc.getRewrite();
-        if (rewrite != null) {
-            key = Utils.genKey(rewrite.getSymbol(), rewrite.getSecType());
-            maxPortfolioPositions = rewrite.getMaxPortfolioPositions();
-        }
-
+        
         Integer position = positionMap.get(key);
         if (position == null) {
             return new int[]{0, maxPortfolioPositions};

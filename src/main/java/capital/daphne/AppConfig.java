@@ -59,21 +59,6 @@ public class AppConfig {
     }
 
     @Data
-    public static class Rewrite {
-        private String symbol;
-        private String secType;
-        private int orderSize;
-        private int maxPortfolioPositions;
-    }
-
-    @Data
-    public static class Parallel {
-        private String symbol;
-        private String secType;
-        private int orderSize;
-    }
-
-    @Data
     public static class SymbolConfig {
         private String symbol;
         private String secType;
@@ -83,10 +68,6 @@ public class AppConfig {
         private String primaryExchange;
         private String currency;
         private Strategy strategy;
-        // 如果存在就替换成其他contract
-        private Rewrite rewrite;
-        // 如果存在就同时发送其他contract
-        private Parallel parallel;
         private Http http;
     }
 }

@@ -58,7 +58,7 @@ public class BarSvc {
                 dataframe.addColumns(prevVWapColumn.setName("prev_vwap"));
                 return dataframe;
             } else {
-                logger.info("barList is empty");
+                logger.info(key + " barList is empty");
                 return null;
             }
         } catch (Exception e) {

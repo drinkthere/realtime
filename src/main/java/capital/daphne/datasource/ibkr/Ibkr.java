@@ -73,9 +73,9 @@ public class Ibkr {
         signal.setValid(false);
 
         // 更新当前交易日的max_wap和min_wap
-        String[] splitArr = msg.split("\\.");
-        String symbol = splitArr[0];
-        String secType = splitArr[1];
+        String[] keyArr = Utils.parseKey(msg);
+        String symbol = keyArr[0];
+        String secType = keyArr[1];
         AppConfig.SymbolConfig sc;
         Optional<AppConfig.SymbolConfig> symbolItemOptional = config.getSymbols().stream()
                 .filter(item -> item.getSymbol().equals(symbol) && item.getSecType().equals(secType))
@@ -87,13 +87,13 @@ public class Ibkr {
             return signal;
         }
 
-        String key = Utils.genKey(symbol, secType);
         // FUT全天交易，STK和CDF在正常交易区间交易
+        String key = Utils.genKey(symbol, secType);
         if (secType.equals("FUT") || Utils.isMarketOpen()) {
             // 获取5s bar信息
             Table df = barService.getDataTable(key, sc.getStrategy().getNumStatsBars());
             if (df == null) {
-                logger.info(msg + ", dataframe is not ready");
+                logger.info(key + " dataframe is not ready");
                 return signal;
             }
 
@@ -106,7 +106,7 @@ public class Ibkr {
             Strategy strategyHandler = strategyHandlerMap.get(key);
             Strategy.TradeActionType side = strategyHandler.getSignalSide(df, position, maxPosition);
             if (side.equals(Strategy.TradeActionType.NO_ACTION)) {
-                logger.info(msg + ", no action signal");
+                logger.info(key + " no action signal");
                 return signal;
             }
 
