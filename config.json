@@ -103,6 +103,64 @@
         "port": 5500,
         "path": "trade"
       }
+    },
+    {
+      "symbol": "SPY",
+      "secType": "CFD",
+      "lastTradeDateOrContractMonth": "",
+      "multiplier": "",
+      "exchange": "SMART",
+      "primaryExchange": "",
+      "currency": "USD",
+      "strategy": {
+        "name": "SMA",
+        "portfolioRequiredToClose": true,
+        "maxPortfolioPositions": 600,
+        "positionSignalMarginOffset": 0.0003,
+        "minDurationAfterSignal": 5,
+        "orderSize": 200,
+        "minIntervalBetweenSignal": 15,
+        "numStatsBars": 8,
+        "signalMargin": 0.0004,
+        "volatilityA": 0,
+        "volatilityB": 30,
+        "volatilityC": 0,
+        "hardLimit": true
+      },
+      "http": {
+        "host": "127.0.0.1",
+        "port": 5500,
+        "path": "trade"
+      }
+    },
+    {
+      "symbol": "AAPL",
+      "secType": "STK",
+      "lastTradeDateOrContractMonth": "",
+      "multiplier": "",
+      "exchange": "SMART",
+      "primaryExchange": "",
+      "currency": "USD",
+      "strategy": {
+        "name": "SMA",
+        "portfolioRequiredToClose": true,
+        "maxPortfolioPositions": 600,
+        "positionSignalMarginOffset": 0.0003,
+        "minDurationAfterSignal": 5,
+        "orderSize": 200,
+        "minIntervalBetweenSignal": 15,
+        "numStatsBars": 8,
+        "signalMargin": 0.0004,
+        "volatilityA": 0,
+        "volatilityB": 30,
+        "volatilityC": 0,
+        "hardLimit": true
+      },
+      "http": {
+        "host": "127.0.0.1",
+        "port": 5500,
+        "path": "trade"
+      }
     }
   ]
 }
