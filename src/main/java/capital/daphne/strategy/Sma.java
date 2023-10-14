@@ -38,6 +38,7 @@ public class Sma implements Strategy {
 
     @Override
     public TradeActionType getSignalSide(Table inputDf, int position, int maxPosition) {
+        /*
         while (true) {
             // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
             int numStatsBars = strategyConf.getNumStatsBars();
@@ -133,7 +134,7 @@ public class Sma implements Strategy {
             }
             break;
         }
-
+        */
         // 走默认流程
         // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
         int numStatsBars = strategyConf.getNumStatsBars();
