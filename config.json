@@ -4,19 +4,19 @@
     "port": 3306,
     "user": "root",
     "password": "123456",
-    "dbname": "quant"
+    "dbname": "quant_mp"
   },
   "redis": {
     "host": "127.0.0.1",
     "port": 6379,
     "password": "MhxzKhl@2023"
   },
-  "tws": {
+  "http": {
     "host": "127.0.0.1",
-    "port": 7497,
-    "clientId": 7
+    "port": 5500,
+    "path": "trade"
   },
-  "symbols": [
+  "contracts": [
     {
       "symbol": "MES",
       "secType": "FUT",
@@ -25,55 +25,7 @@
       "exchange": "CME",
       "primaryExchange": "CME",
       "currency": "USD",
-      "strategy": {
-        "name": "SMA",
-        "portfolioRequiredToClose": true,
-        "maxPortfolioPositions": 3,
-        "positionSignalMarginOffset": 0.0003,
-        "minDurationAfterSignal": 5,
-        "orderSize": 1,
-        "minIntervalBetweenSignal": 15,
-        "numStatsBars": 8,
-        "signalMargin": 0.0004,
-        "volatilityA": 0,
-        "volatilityB": 30,
-        "volatilityC": 0,
-        "hardLimit": true
-      },
-      "http": {
-        "host": "127.0.0.1",
-        "port": 5500,
-        "path": "trade"
-      }
-    },
-    {
-      "symbol": "NQ",
-      "secType": "FUT",
-      "lastTradeDateOrContractMonth": "20231215",
-      "multiplier": "20",
-      "exchange": "CME",
-      "primaryExchange": "CME",
-      "currency": "USD",
-      "strategy": {
-        "name": "SMA",
-        "portfolioRequiredToClose": true,
-        "maxPortfolioPositions": 3,
-        "positionSignalMarginOffset": 0.0003,
-        "minDurationAfterSignal": 5,
-        "orderSize": 1,
-        "minIntervalBetweenSignal": 15,
-        "numStatsBars": 8,
-        "signalMargin": 0.0004,
-        "volatilityA": 0,
-        "volatilityB": 30,
-        "volatilityC": 0,
-        "hardLimit": true
-      },
-      "http": {
-        "host": "127.0.0.1",
-        "port": 5500,
-        "path": "trade"
-      }
+      "minTicker": 0.25
     },
     {
       "symbol": "MNQ",
@@ -83,26 +35,7 @@
       "exchange": "CME",
       "primaryExchange": "CME",
       "currency": "USD",
-      "strategy": {
-        "name": "SMA",
-        "portfolioRequiredToClose": true,
-        "maxPortfolioPositions": 3,
-        "positionSignalMarginOffset": 0.0003,
-        "minDurationAfterSignal": 5,
-        "orderSize": 1,
-        "minIntervalBetweenSignal": 15,
-        "numStatsBars": 8,
-        "signalMargin": 0.0004,
-        "volatilityA": 0,
-        "volatilityB": 30,
-        "volatilityC": 0,
-        "hardLimit": true
-      },
-      "http": {
-        "host": "127.0.0.1",
-        "port": 5500,
-        "path": "trade"
-      }
+      "minTicker": 0.25
     },
     {
       "symbol": "SPY",
@@ -112,55 +45,101 @@
       "exchange": "SMART",
       "primaryExchange": "",
       "currency": "USD",
-      "strategy": {
-        "name": "SMA",
-        "portfolioRequiredToClose": true,
-        "maxPortfolioPositions": 600,
-        "positionSignalMarginOffset": 0.0003,
-        "minDurationAfterSignal": 5,
-        "orderSize": 200,
-        "minIntervalBetweenSignal": 15,
-        "numStatsBars": 8,
-        "signalMargin": 0.0004,
-        "volatilityA": 0,
-        "volatilityB": 30,
-        "volatilityC": 0,
-        "hardLimit": true
-      },
-      "http": {
-        "host": "127.0.0.1",
-        "port": 5500,
-        "path": "trade"
-      }
+      "minTicker": 0.01
     },
     {
       "symbol": "AAPL",
-      "secType": "STK",
+      "secType": "CFD",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
       "exchange": "SMART",
       "primaryExchange": "",
       "currency": "USD",
-      "strategy": {
-        "name": "SMA",
-        "portfolioRequiredToClose": true,
-        "maxPortfolioPositions": 600,
-        "positionSignalMarginOffset": 0.0003,
-        "minDurationAfterSignal": 5,
-        "orderSize": 200,
-        "minIntervalBetweenSignal": 15,
-        "numStatsBars": 8,
-        "signalMargin": 0.0004,
-        "volatilityA": 0,
-        "volatilityB": 30,
-        "volatilityC": 0,
-        "hardLimit": true
-      },
-      "http": {
-        "host": "127.0.0.1",
-        "port": 5500,
-        "path": "trade"
-      }
+      "minTicker": 0.01
+    },
+    {
+      "symbol": "QQQ",
+      "secType": "CFD",
+      "lastTradeDateOrContractMonth": "",
+      "multiplier": "",
+      "exchange": "SMART",
+      "primaryExchange": "",
+      "currency": "USD",
+      "minTicker": 0.01
+    }
+  ],
+  "algorithms": [
+    {
+      "name": "SMA",
+      "accountId": "DU5816868",
+      "symbol": "MES",
+      "secType": "FUT",
+      "portfolioRequiredToClose": true,
+      "maxPortfolioPositions": 3,
+      "positionSignalMarginOffset": 0.0003,
+      "minDurationAfterSignal": 5,
+      "orderSize": 1,
+      "minIntervalBetweenSignal": 15,
+      "numStatsBars": 8,
+      "signalMargin": 0.0004,
+      "volatilityA": 0,
+      "volatilityB": 30,
+      "volatilityC": 0,
+      "hardLimit": 1
+    },
+    {
+      "name": "SMA",
+      "accountId": "DU5816868",
+      "symbol": "MNQ",
+      "secType": "FUT",
+      "portfolioRequiredToClose": true,
+      "maxPortfolioPositions": 3,
+      "positionSignalMarginOffset": 0.0003,
+      "minDurationAfterSignal": 5,
+      "orderSize": 1,
+      "minIntervalBetweenSignal": 15,
+      "numStatsBars": 8,
+      "signalMargin": 0.0004,
+      "volatilityA": 0,
+      "volatilityB": 30,
+      "volatilityC": 0,
+      "hardLimit": 1
+    },
+    {
+      "name": "SMA",
+      "accountId": "DU6380369",
+      "symbol": "MES",
+      "secType": "FUT",
+      "portfolioRequiredToClose": true,
+      "maxPortfolioPositions": 3,
+      "positionSignalMarginOffset": 0.0003,
+      "minDurationAfterSignal": 5,
+      "orderSize": 1,
+      "minIntervalBetweenSignal": 15,
+      "numStatsBars": 8,
+      "signalMargin": 0.0004,
+      "volatilityA": 0,
+      "volatilityB": 30,
+      "volatilityC": 0,
+      "hardLimit": 1
+    },
+    {
+      "name": "SMA",
+      "accountId": "DU6380369",
+      "symbol": "MNQ",
+      "secType": "FUT",
+      "portfolioRequiredToClose": true,
+      "maxPortfolioPositions": 3,
+      "positionSignalMarginOffset": 0.0003,
+      "minDurationAfterSignal": 5,
+      "orderSize": 1,
+      "minIntervalBetweenSignal": 15,
+      "numStatsBars": 8,
+      "signalMargin": 0.0004,
+      "volatilityA": 0,
+      "volatilityB": 30,
+      "volatilityC": 0,
+      "hardLimit": 1
     }
   ]
 }

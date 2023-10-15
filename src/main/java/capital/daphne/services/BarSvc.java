@@ -1,6 +1,6 @@
-package capital.daphne.service;
+package capital.daphne.services;
 
-import capital.daphne.JedisUtil;
+import capital.daphne.JedisManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
@@ -24,18 +24,15 @@ class BarInfo {
 public class BarSvc {
     private static final Logger logger = LoggerFactory.getLogger(BarSvc.class);
 
-    public BarSvc() {
-
-    }
-
     public Table getDataTable(String key, int minBarNum) {
-        JedisPool jedisPool = JedisUtil.getJedisPool();
+        JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
+            // 数据只与symbol和secType油管，和accountId无关
             String redisKey = key + ".BAR_LIST";
             String storedBarListJson = jedis.get(redisKey);
             if (storedBarListJson != null) {
                 ObjectMapper objectMapper = new ObjectMapper();
-                List<BarInfo> barList = objectMapper.readValue(storedBarListJson, new TypeReference<List<BarInfo>>() {
+                List<BarInfo> barList = objectMapper.readValue(storedBarListJson, new TypeReference<>() {
                 });
                 logger.debug("size=" + barList.size() + ", minNumOfBars=" + minBarNum);
                 if (barList.size() < minBarNum) {
