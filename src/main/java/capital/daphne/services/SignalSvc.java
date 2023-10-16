@@ -75,7 +75,7 @@ public class SignalSvc {
             int maxPosition = ac.getMaxPortfolioPositions();
 
             // 判断是否要下单
-            Algorithm algoProcessor = algoProcessorMap.get(key);
+            Algorithm algoProcessor = algoProcessorMap.get(ac.getAccountId() + "." + key);
             return algoProcessor.getSignal(df, position, maxPosition);
         } else {
             logger.info("market is not open");
@@ -95,8 +95,8 @@ public class SignalSvc {
             insertStatement.setInt(6, sig.getQuantity());
             insertStatement.executeUpdate();
             logger.info("save signal successfully, signal: " + sig);
-            connection.close();
         } catch (SQLException e) {
+            e.printStackTrace();
             logger.error("save signal failed, error:" + e.getMessage());
         }
     }

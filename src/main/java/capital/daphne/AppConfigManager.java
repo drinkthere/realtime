@@ -92,7 +92,6 @@ public class AppConfigManager {
             private boolean portfolioRequiredToClose;
             private int maxPortfolioPositions;
             private float positionSignalMarginOffset;
-            private int minDurationAfterSignal;
             private int orderSize;
             private int minIntervalBetweenSignal;
             private int numStatsBars;

@@ -209,8 +209,8 @@ public class Sma implements Algorithm {
             LocalTime tradeEndTime = !ac.isPortfolioRequiredToClose() ? marketCloseTime : portfolioCloseTime;
 
             if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime)) {
-                logger.info(String.format("%s|%s|place|%f|<=%f|>=%f|%s|%s",
-                        ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold));
+                logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s",
+                        ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold));
                 if (vwap <= longThreshold
                         && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                         && (position < maxPosition * ac.getHardLimit()) && resetDatetime == null) {
@@ -254,6 +254,9 @@ public class Sma implements Algorithm {
             }
         } else {
             // FUT交易不受时间限制
+            logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s",
+                    ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold));
+
             if (vwap <= longThreshold
                     && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                     && (position < maxPosition * ac.getHardLimit()) && resetDatetime == null) {
@@ -295,6 +298,7 @@ public class Sma implements Algorithm {
     private Signal fulfillSignal(double vwap, int position) {
         Signal signal = new Signal();
         signal.setValid(true);
+        signal.setAccountId(ac.getAccountId());
         signal.setUuid(UUID.randomUUID().toString());
         signal.setSymbol(ac.getSymbol());
         signal.setSecType(ac.getSecType());
