@@ -50,7 +50,7 @@ public class Main {
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
                             Signal tradeSignal = signalSvc.getTradeSignal(ac);
-                            if (tradeSignal.isValid()) {
+                            if (tradeSignal != null && tradeSignal.isValid()) {
                                 // 记录信号
                                 signalSvc.saveSignal(tradeSignal);
 

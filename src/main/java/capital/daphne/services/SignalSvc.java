@@ -4,6 +4,9 @@ import capital.daphne.AppConfigManager;
 import capital.daphne.DbManager;
 import capital.daphne.algorithms.Algorithm;
 import capital.daphne.algorithms.Sma;
+import capital.daphne.algorithms.close.CloseAlgorithm;
+import capital.daphne.algorithms.close.MACDSingal;
+import capital.daphne.algorithms.close.MACDZero;
 import capital.daphne.models.Signal;
 import capital.daphne.utils.Utils;
 import org.json.JSONObject;
@@ -34,11 +37,14 @@ public class SignalSvc {
 
     private final Map<String, Algorithm> algoProcessorMap;
 
+    private final Map<String, CloseAlgorithm> closeAlgoProcessorMap;
+
     public SignalSvc(List<AppConfigManager.AppConfig.AlgorithmConfig> algorithmConfigList) {
         barService = new BarSvc();
         positionService = new PositionSvc();
 
         algoProcessorMap = new HashMap<>();
+        closeAlgoProcessorMap = new HashMap<>();
         for (AppConfigManager.AppConfig.AlgorithmConfig ac : algorithmConfigList) {
             String accountId = ac.getAccountId();
             String symbol = ac.getSymbol();
@@ -52,6 +58,21 @@ public class SignalSvc {
                     break;
             }
             algoProcessorMap.put(accountId + "." + symbol + "." + secType, algoProcessor);
+
+            AppConfigManager.AppConfig.CloseAlgorithmConfig cac = ac.getCloseAlgo();
+
+            CloseAlgorithm closeAlgoProcess = null;
+            switch (cac.getMethod()) {
+                case "MACD_SIGNAL":
+                    closeAlgoProcess = new MACDSingal(ac);
+                    break;
+                case "MACD_ZERO":
+                    closeAlgoProcess = new MACDZero(ac);
+                    break;
+                default:
+                    break;
+            }
+            closeAlgoProcessorMap.put(accountId + "." + symbol + "." + secType, closeAlgoProcess);
         }
     }
 
@@ -76,7 +97,17 @@ public class SignalSvc {
 
             // 判断是否要下单
             Algorithm algoProcessor = algoProcessorMap.get(ac.getAccountId() + "." + key);
-            return algoProcessor.getSignal(df, position, maxPosition);
+            Signal signal = algoProcessor.getSignal(df, position, maxPosition);
+            if (signal != null && signal.isValid()) {
+                return signal;
+            }
+
+//            // 如果没有open的信号，但是有close的配置，尝试获取信号
+//            if (ac.getCloseAlgo() != null) {
+//                CloseAlgorithm closeAlgoProcessor = closeAlgoProcessorMap.get(ac.getAccountId() + "." + key);
+//                return closeAlgoProcessor.getSignal(df, position, maxPosition);
+//            }
+            return null;
         } else {
             logger.info("market is not open");
             return null;

@@ -12,8 +12,13 @@ public class Signal {
     private String secType;
     private double wap;
     private int quantity;
+    private OrderType orderType;
 
     public enum TradeActionType {
         NO_ACTION, BUY, SELL;
+    }
+
+    public enum OrderType {
+        OPEN, CLOSE;
     }
 }

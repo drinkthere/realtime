@@ -102,6 +102,17 @@ public class AppConfigManager {
             private float hardLimit;
             private String hardLimitClosePositionMethod;
             private int minDurationWhenReset;
+            private CloseAlgorithmConfig closeAlgo;
+        }
+
+        @Data
+        public static class CloseAlgorithmConfig {
+            private String method;
+            private int minDurationBeforeClose;
+            private int maxDurationToClose;
+            private int macdShortNumStatsBar;
+            private int macdLongNumStatsBar;
+            private int macdSignalNumStatsBar;
         }
     }
 

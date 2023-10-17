@@ -1,5 +1,8 @@
 package capital.daphne.utils;
 
+import tech.tablesaw.api.DoubleColumn;
+import tech.tablesaw.columns.numbers.DoubleColumnType;
+
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -37,5 +40,53 @@ public class Utils {
     public static String[] parseKey(String key) {
         return key.split("\\.");
 
+    }
+
+    public static DoubleColumn ewm(DoubleColumn inputCol, double alpha, String outputColumnName, boolean prefillSma, boolean adjust, int period, int minPeriods) {
+
+        DoubleColumn result = DoubleColumn.create(outputColumnName, inputCol.size());
+        //initialized
+        int startIndex = 1;
+        if (prefillSma) {
+            DoubleColumn sma = inputCol.rolling(period).mean();
+            //result.set(period - 1, sma.getDouble(period - 1));
+            result.set(period - 1, sma.getDouble(period - 1));
+            startIndex = period;
+        } else {
+            result.set(0, inputCol.getDouble(0));
+        }
+
+        if (!adjust) {
+            for (int i = startIndex; i < inputCol.size(); i++) {
+                double ema = inputCol.getDouble(i) * alpha + result.getDouble(i - 1) * (1 - alpha);
+                result.set(i, ema);
+            }
+        } else {
+            //DoubleColumn alphaWeighted = DoubleColumn.create("alphaWeighted", inputCol.size());
+            double alphaWeightedSum = 0;
+            //int span = period * 2 + 1;
+            double alphaWeightedInputSum = 0;
+
+            for (int i = 0; i < inputCol.size(); i++) {
+                double alphaWeightRet = Math.pow(1 - alpha, i);
+                alphaWeightedSum += alphaWeightRet;
+                //alphaWeighted.set(i, alphaWeightRet);
+
+                alphaWeightedInputSum = (alphaWeightedInputSum * (1 - alpha) + inputCol.getDouble(i));
+
+                if (alphaWeightedSum != 0) {
+                    result.set(i, alphaWeightedInputSum / alphaWeightedSum);
+                } else {
+                    result.set(i, 0);
+                }
+            }
+        }
+
+        if (!prefillSma || adjust) {
+            for (int i = 0; i <= minPeriods; i++) {
+                result.set(i, DoubleColumnType.missingValueIndicator());
+            }
+        }
+        return result;
     }
 }
