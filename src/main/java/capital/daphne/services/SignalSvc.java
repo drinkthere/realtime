@@ -60,19 +60,20 @@ public class SignalSvc {
             algoProcessorMap.put(accountId + "." + symbol + "." + secType, algoProcessor);
 
             AppConfigManager.AppConfig.CloseAlgorithmConfig cac = ac.getCloseAlgo();
-
-            CloseAlgorithm closeAlgoProcess = null;
-            switch (cac.getMethod()) {
-                case "MACD_SIGNAL":
-                    closeAlgoProcess = new MACDSingal(ac);
-                    break;
-                case "MACD_ZERO":
-                    closeAlgoProcess = new MACDZero(ac);
-                    break;
-                default:
-                    break;
+            if (cac != null) {
+                CloseAlgorithm closeAlgoProcess = null;
+                switch (cac.getMethod()) {
+                    case "MACD_SIGNAL":
+                        closeAlgoProcess = new MACDSingal(ac);
+                        break;
+                    case "MACD_ZERO":
+                        closeAlgoProcess = new MACDZero(ac);
+                        break;
+                    default:
+                        break;
+                }
+                closeAlgoProcessorMap.put(accountId + "." + symbol + "." + secType, closeAlgoProcess);
             }
-            closeAlgoProcessorMap.put(accountId + "." + symbol + "." + secType, closeAlgoProcess);
         }
     }
 
@@ -156,6 +157,7 @@ public class SignalSvc {
             requestData.put("secType", signal.getSecType());
             requestData.put("wap", signal.getWap());
             requestData.put("quantity", signal.getQuantity());
+            requestData.put("orderType", signal.getOrderType());
 
             // 获取 JSON 字符串形式的请求体
             String requestBody = requestData.toString();

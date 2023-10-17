@@ -86,15 +86,7 @@
       "volatilityA": 0,
       "volatilityB": 30,
       "volatilityC": 0,
-      "hardLimit": 1,
-      "closeAlgo": {
-        "method": "MACD_SIGNAL",
-        "minDurationBeforeClose": 10,
-        "maxDurationToClose": 300,
-        "macdShortNumStatsBar": 12,
-        "macdLongNumStatsBar": 19,
-        "macdSignalNumStatsBar": 12
-      }
+      "hardLimit": 1
     }
   ]
 }
