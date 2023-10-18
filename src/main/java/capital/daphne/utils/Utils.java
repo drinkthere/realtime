@@ -50,7 +50,11 @@ public class Utils {
         if (prefillSma) {
             DoubleColumn sma = inputCol.rolling(period).mean();
             //result.set(period - 1, sma.getDouble(period - 1));
-            result.set(period - 1, sma.getDouble(period - 1));
+            Double initialSma = sma.getDouble(period - 1);
+            if (initialSma == null || initialSma.isNaN()) {
+                initialSma = 0.0d;
+            }
+            result.set(period - 1, initialSma);
             startIndex = period;
         } else {
             result.set(0, inputCol.getDouble(0));
@@ -58,7 +62,11 @@ public class Utils {
 
         if (!adjust) {
             for (int i = startIndex; i < inputCol.size(); i++) {
-                double ema = inputCol.getDouble(i) * alpha + result.getDouble(i - 1) * (1 - alpha);
+                Double prevValue = result.getDouble(i - 1);
+                if (prevValue == null || prevValue.isNaN()) {
+                    prevValue = 0.0d;
+                }
+                double ema = inputCol.getDouble(i) * alpha + prevValue * (1 - alpha);
                 result.set(i, ema);
             }
         } else {

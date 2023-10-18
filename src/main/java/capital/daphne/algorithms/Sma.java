@@ -177,12 +177,22 @@ public class Sma implements Algorithm {
     }
 
     private double[] calculateSignalMargin(double volatilityMultiplier, int position, int maxPosition) {
+
+//        float signalMargin = ac.getSignalMargin();
+//        float positionSignalMarginOffset = ac.getPositionSignalMarginOffset();
+//
+//        float positionOffset = position / (float) maxPosition;
+//        double buySignalMargin = (signalMargin + positionSignalMarginOffset * positionOffset) * volatilityMultiplier;
+//        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * positionOffset) * volatilityMultiplier;
+//        return new double[]{buySignalMargin, sellSignalMargin};
+
         float signalMargin = ac.getSignalMargin();
         float positionSignalMarginOffset = ac.getPositionSignalMarginOffset();
-
-        float positionOffset = position / (float) maxPosition;
-        double buySignalMargin = (signalMargin + positionSignalMarginOffset * positionOffset) * volatilityMultiplier;
-        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * positionOffset) * volatilityMultiplier;
+        if (!ac.getSecType().equals("FUT")) {
+            position = position / 100;
+        }
+        double buySignalMargin = (signalMargin + positionSignalMarginOffset * position / 100) * volatilityMultiplier;
+        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * position / 100) * volatilityMultiplier;
         return new double[]{buySignalMargin, sellSignalMargin};
     }
 

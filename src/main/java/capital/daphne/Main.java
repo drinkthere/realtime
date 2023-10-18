@@ -43,7 +43,10 @@ public class Main {
                     List<AppConfigManager.AppConfig.AlgorithmConfig> matchedAlgorithms = appConfig.getAlgorithms().stream()
                             .filter(algorithm -> symbol.equals(algorithm.getSymbol()) && secType.equals(algorithm.getSecType()))
                             .collect(Collectors.toList());
-
+                    if (matchedAlgorithms.size() == 0) {
+                        logger.error("no matched algorithms to process");
+                        return;
+                    }
                     int numThreads = matchedAlgorithms.size();
                     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
@@ -63,7 +66,7 @@ public class Main {
                 }
             }, "barUpdateChannel");
         } catch (Exception e) {
-            logger.error("barList update failed, error:" + e.getMessage());
+            logger.error("handling subscription message failed, error:" + e.getMessage());
         }
     }
 }

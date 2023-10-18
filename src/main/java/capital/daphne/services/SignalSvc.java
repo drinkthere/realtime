@@ -103,11 +103,13 @@ public class SignalSvc {
                 return signal;
             }
 
-//            // 如果没有open的信号，但是有close的配置，尝试获取信号
-//            if (ac.getCloseAlgo() != null) {
-//                CloseAlgorithm closeAlgoProcessor = closeAlgoProcessorMap.get(ac.getAccountId() + "." + key);
-//                return closeAlgoProcessor.getSignal(df, position, maxPosition);
-//            }
+            // 如果没有open的信号，但是有close的配置，尝试获取信号
+            if (ac.getCloseAlgo() != null) {
+                CloseAlgorithm closeAlgoProcessor = closeAlgoProcessorMap.get(ac.getAccountId() + "." + key);
+                if (closeAlgoProcessor != null) {
+                    return closeAlgoProcessor.getSignal(df, position, maxPosition);
+                }
+            }
             return null;
         } else {
             logger.info("market is not open");
