@@ -71,9 +71,9 @@ public class MACDZero implements CloseAlgorithm {
             signal.setValid(false);
             OrderInfo lastOrder = orderList.get(orderList.size() - 1);
             String lodt = lastOrder.getDateTime();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
             LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
-            
+
             LocalDateTime now = LocalDateTime.now();
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
@@ -90,6 +90,8 @@ public class MACDZero implements CloseAlgorithm {
                     signal.setWap(row.getDouble("vwap"));
                     signal.setQuantity(-lastOrder.getQuantity());
                     signal.setOrderType(Signal.OrderType.CLOSE);
+
+                    jedis.del(redisKey);
                 }
             }
             return signal;

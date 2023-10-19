@@ -71,7 +71,7 @@ public class MACDSingal implements CloseAlgorithm {
             signal.setValid(false);
             OrderInfo lastOrder = orderList.get(orderList.size() - 1);
             String lodt = lastOrder.getDateTime();
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
             LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
 
             LocalDateTime now = LocalDateTime.now();
@@ -91,6 +91,8 @@ public class MACDSingal implements CloseAlgorithm {
                     signal.setWap(row.getDouble("vwap"));
                     signal.setQuantity(-lastOrder.getQuantity());
                     signal.setOrderType(Signal.OrderType.CLOSE);
+
+                    jedis.del(redisKey);
                 }
             }
             return signal;
