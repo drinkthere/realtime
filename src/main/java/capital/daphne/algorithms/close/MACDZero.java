@@ -17,6 +17,7 @@ import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -69,9 +70,13 @@ public class MACDZero implements CloseAlgorithm {
             Signal signal = new Signal();
             signal.setValid(false);
             OrderInfo lastOrder = orderList.get(orderList.size() - 1);
+            String lodt = lastOrder.getDateTime();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+            LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
+            
             LocalDateTime now = LocalDateTime.now();
-            if (lastOrder.getDateTime().plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
-                    lastOrder.getDateTime().plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
+            if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
+                    lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
 
                 if ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < 0) ||
                         (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > 0)) {

@@ -17,6 +17,7 @@ import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -64,14 +65,18 @@ public class MACDSingal implements CloseAlgorithm {
             if (orderList == null && orderList.size() == 0) {
                 return null;
             }
-
+            logger.info("order list:" + orderList);
             // 如果有数据，判断是否针对最后一笔交易进行减仓（后需可扩展）
             Signal signal = new Signal();
             signal.setValid(false);
             OrderInfo lastOrder = orderList.get(orderList.size() - 1);
+            String lodt = lastOrder.getDateTime();
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSS");
+            LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
+
             LocalDateTime now = LocalDateTime.now();
-            if (lastOrder.getDateTime().plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
-                    lastOrder.getDateTime().plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
+            if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
+                    lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
                 logger.info(String.format("MACD_SIGNAL|accountId=%s|symbol=%s|secType=%s|quantity=%d|bm=%f|sbm=%f|%s",
                         accountId, symbol, secType, lastOrder.getQuantity(), row.getDouble(benchmarkColumn), row.getDouble(signalBenchmarkColumn),
                         (lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn)) ||
