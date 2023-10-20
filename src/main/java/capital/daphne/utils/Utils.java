@@ -3,6 +3,8 @@ package capital.daphne.utils;
 import tech.tablesaw.api.DoubleColumn;
 import tech.tablesaw.columns.numbers.DoubleColumnType;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -96,5 +98,12 @@ public class Utils {
             }
         }
         return result;
+    }
+
+    public static double roundNum(double num, int decimals) {
+        BigDecimal bd = new BigDecimal(num);
+        bd = bd.setScale(decimals, RoundingMode.HALF_UP);
+
+        return bd.doubleValue();
     }
 }

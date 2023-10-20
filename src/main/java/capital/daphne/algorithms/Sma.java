@@ -46,6 +46,7 @@ public class Sma implements Algorithm {
         Row latestBar = df.row(df.rowCount() - 1);
         double volatility = latestBar.getDouble("volatility");
         double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+        // System.out.println(latestBar.getDouble(benchmark));
         return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
     }
 
@@ -74,7 +75,7 @@ public class Sma implements Algorithm {
         double[] signalMargins = calculateSignalMargin(volatilityMultiplier, position, maxPosition);
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
-
+        // System.out.println(buySignalMargin + "|" + sellSignalMargin + "|" + position + "|" + volatilityMultiplier);
         double vwap = row.getDouble("vwap");
         double sma = row.getDouble(benchmarkColumn);
 
@@ -100,8 +101,8 @@ public class Sma implements Algorithm {
             LocalTime tradeEndTime = !ac.isPortfolioRequiredToClose() ? marketCloseTime : portfolioCloseTime;
 
             if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime)) {
-                logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d",
-                        ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position));
+                logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
+                        ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));
                 if (vwap <= longThreshold
                         && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                         && (position < maxPosition * ac.getHardLimit()) && resetDatetime == null) {
@@ -177,7 +178,6 @@ public class Sma implements Algorithm {
     }
 
     private double[] calculateSignalMargin(double volatilityMultiplier, int position, int maxPosition) {
-
 //        float signalMargin = ac.getSignalMargin();
 //        float positionSignalMarginOffset = ac.getPositionSignalMarginOffset();
 //
@@ -191,8 +191,9 @@ public class Sma implements Algorithm {
         if (!ac.getSecType().equals("FUT")) {
             position = position / 100;
         }
-        double buySignalMargin = (signalMargin + positionSignalMarginOffset * position / 100) * volatilityMultiplier;
-        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * position / 100) * volatilityMultiplier;
+
+        double buySignalMargin = (signalMargin + positionSignalMarginOffset * position) * volatilityMultiplier;
+        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * position) * volatilityMultiplier;
         return new double[]{buySignalMargin, sellSignalMargin};
     }
 

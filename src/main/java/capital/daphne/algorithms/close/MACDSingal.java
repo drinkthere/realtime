@@ -73,8 +73,14 @@ public class MACDSingal implements CloseAlgorithm {
             String lodt = lastOrder.getDateTime();
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
             LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
-
             LocalDateTime now = LocalDateTime.now();
+
+//
+//            String nowDateTime = row.getString("date_us");
+//            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
+//            LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
+//            LocalDateTime now = LocalDateTime.parse(nowDateTime, formatter);
+
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
                 logger.info(String.format("MACD_SIGNAL|accountId=%s|symbol=%s|secType=%s|quantity=%d|bm=%f|sbm=%f|%s",
