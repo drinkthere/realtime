@@ -41,7 +41,6 @@ public class Utils {
 
     public static String[] parseKey(String key) {
         return key.split("\\.");
-
     }
 
     public static DoubleColumn ewm(DoubleColumn inputCol, double alpha, String outputColumnName, boolean prefillSma, boolean adjust, int period, int minPeriods) {
