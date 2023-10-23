@@ -46,7 +46,8 @@ public class Sma implements Algorithm {
         Row latestBar = df.row(df.rowCount() - 1);
         double volatility = latestBar.getDouble("volatility");
         double volatilityMultiplier = calToVolatilityMultiplier(volatility);
-        // System.out.println(latestBar.getDouble(benchmark));
+
+        // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
         return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
     }
 
@@ -178,14 +179,6 @@ public class Sma implements Algorithm {
     }
 
     private double[] calculateSignalMargin(double volatilityMultiplier, int position, int maxPosition) {
-//        float signalMargin = ac.getSignalMargin();
-//        float positionSignalMarginOffset = ac.getPositionSignalMarginOffset();
-//
-//        float positionOffset = position / (float) maxPosition;
-//        double buySignalMargin = (signalMargin + positionSignalMarginOffset * positionOffset) * volatilityMultiplier;
-//        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * positionOffset) * volatilityMultiplier;
-//        return new double[]{buySignalMargin, sellSignalMargin};
-
         float signalMargin = ac.getSignalMargin();
         float positionSignalMarginOffset = ac.getPositionSignalMarginOffset();
         if (!ac.getSecType().equals("FUT")) {

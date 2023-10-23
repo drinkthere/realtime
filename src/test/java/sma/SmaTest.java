@@ -25,19 +25,19 @@ import tech.tablesaw.api.Table;
 
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class SmaTest {
 
     private static final Logger logger = LoggerFactory.getLogger(SmaTest.class);
 
-    private double preMaxWap = 0.0;
-    private double preMinWap = 0.0;
-    private double currMaxWap = 0.0;
-    private double currMinWap = 0.0;
-
     private AppConfigManager.AppConfig.AlgorithmConfig ac;
 
+    private List<String> dateList;
+    private Map<String, Double> maxWapMap;
+    private Map<String, Double> minWapMap;
 
     @Test
     public void testSma() {
@@ -53,8 +53,12 @@ public class SmaTest {
 
         String currentDirectory = System.getProperty("user.dir");
 
+        dateList = new ArrayList<>();
+        maxWapMap = new HashMap<>();
+        minWapMap = new HashMap<>();
+
         // 读取csv文件，加载List<Bar>
-        List<Bar> bars = loadCsv(currentDirectory + "/src/test/java/sma/spy_2023-09-27.csv");
+        List<Bar> bars = loadCsv(currentDirectory + "/src/test/java/sma/spy_2023-09-27--2023-09-29.csv");
 
         // 生成我们需要的barList
         List<BarInfo> barList = new ArrayList<>();
@@ -71,7 +75,7 @@ public class SmaTest {
             if (barInfo == null) {
                 continue;
             }
-
+            // System.out.println(barInfo.getVwap());
             barList.add(barInfo);
             if (barList.size() > maxBarListSize) {
                 // 如果超过最大值，移除最早加入barList的数据
@@ -157,18 +161,68 @@ public class SmaTest {
             wap = vwap;
         }
 
-        if (wap > currMaxWap) {
-            currMaxWap = wap;
+        String[] s = bar.getDate().split(" ");
+        String dateStr = s[0];
+        double prevMax;
+        double prevMin;
+        double currMax;
+        double currMin;
+        if (maxWapMap.containsKey(dateStr)) {
+            currMax = maxWapMap.get(dateStr);
+        } else {
+            currMax = wap;
+            maxWapMap.put(dateStr, wap);
+            dateList.add(dateStr);
         }
-        if (currMinWap == 0 || wap < currMinWap) {
-            currMinWap = wap;
+
+        if (minWapMap.containsKey(dateStr)) {
+            currMin = minWapMap.get(dateStr);
+        } else {
+            currMin = wap;
+            minWapMap.put(dateStr, wap);
+            dateList.add(dateStr);
         }
+
+        boolean needUpdated = false;
+        if (wap > currMax) {
+            currMax = wap;
+            needUpdated = true;
+        }
+        if (wap < currMin) {
+            currMin = wap;
+            needUpdated = true;
+        }
+
+        if (needUpdated) {
+            minWapMap.put(dateStr, currMin);
+            maxWapMap.put(dateStr, currMax);
+        }
+
+        int i = dateList.indexOf(dateStr);
+        if (i == -1) {
+            prevMax = 0.0;
+            prevMin = 0.0;
+            logger.info("error date index");
+            System.exit(-1);
+        } else if (i == 0) {
+            prevMax = 0.0;
+            prevMin = 0.0;
+        } else {
+            String prevDateStr = dateList.get(i - 1);
+            prevMax = maxWapMap.getOrDefault(prevDateStr, 0.0);
+            prevMin = minWapMap.getOrDefault(prevDateStr, 0.0);
+            if (prevMax == 0.0 || prevMin == 0.0) {
+                logger.info("error date index");
+                System.exit(-1);
+            }
+        }
+
 
         try {
             BarInfo barInfo = new BarInfo();
             barInfo.setDate(bar.getDate());
             barInfo.setVwap(wap);
-            double[] wapArr = new double[]{preMaxWap, preMinWap, currMaxWap, currMinWap};
+            double[] wapArr = new double[]{prevMax, prevMin, currMax, currMin};
             double volatility = calVolatility(wap, wapArr);
 
             barInfo.setVolatility(volatility);
@@ -184,13 +238,19 @@ public class SmaTest {
         double currMaxWap = wapArr[2];
         double currMinWap = wapArr[3];
 
+        if (prevMaxWap == 0) {
+            prevMaxWap = currMaxWap;
+        }
+
         if (prevMinWap == 0) {
             prevMinWap = currMinWap;
         }
 
+
         double maxWap = Math.max(prevMaxWap, currMaxWap);
         double minWap = Math.min(prevMinWap, currMinWap);
         double volatility = (maxWap - minWap) / minWap;
+        // System.out.println(maxWap + "|" + minWap);
         return volatility;
         // return Utils.roundNum(volatility, 6);
     }

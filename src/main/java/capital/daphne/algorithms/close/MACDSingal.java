@@ -71,11 +71,12 @@ public class MACDSingal implements CloseAlgorithm {
             signal.setValid(false);
             OrderInfo lastOrder = orderList.get(orderList.size() - 1);
             String lodt = lastOrder.getDateTime();
+
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
             LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
             LocalDateTime now = LocalDateTime.now();
 
-//
+
 //            String nowDateTime = row.getString("date_us");
 //            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
 //            LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
@@ -87,8 +88,8 @@ public class MACDSingal implements CloseAlgorithm {
                         accountId, symbol, secType, lastOrder.getQuantity(), row.getDouble(benchmarkColumn), row.getDouble(signalBenchmarkColumn),
                         (lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn)) ||
                                 (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn))));
-                if ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn)) ||
-                        (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn))) {
+                if ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn) && position > 0) ||
+                        (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn) && position < 0)) {
                     signal.setValid(true);
                     signal.setAccountId(accountId);
                     signal.setUuid(UUID.randomUUID().toString());
