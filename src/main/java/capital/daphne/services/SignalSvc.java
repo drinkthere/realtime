@@ -3,6 +3,7 @@ package capital.daphne.services;
 import capital.daphne.AppConfigManager;
 import capital.daphne.DbManager;
 import capital.daphne.algorithms.Algorithm;
+import capital.daphne.algorithms.Ema;
 import capital.daphne.algorithms.Sma;
 import capital.daphne.algorithms.close.CloseAlgorithm;
 import capital.daphne.algorithms.close.MACDSingal;
@@ -52,6 +53,9 @@ public class SignalSvc {
 
             Algorithm algoProcessor;
             switch (ac.getName()) {
+                case "EMA":
+                    algoProcessor = new Ema(ac);
+                    break;
                 case "SMA":
                 default:
                     algoProcessor = new Sma(ac);
