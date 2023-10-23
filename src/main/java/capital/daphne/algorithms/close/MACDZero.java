@@ -78,10 +78,12 @@ public class MACDZero implements CloseAlgorithm {
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
 
+                logger.info(String.format("MACD_SIGNAL|accountId=%s|symbol=%s|secType=%s|quantity=%d|bm=%f|sbm=0|%s",
+                        accountId, symbol, secType, lastOrder.getQuantity(), row.getDouble(benchmarkColumn),
+                        ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < 0 && position > 0) ||
+                                (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > 0 && position < 0))));
                 if ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < 0 && position > 0) ||
                         (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > 0 && position < 0)) {
-                    logger.info(String.format("MACD_SIGNAL|accountId=%s|symbol=%s|secType=%s|quantity=%d|bm=%f|sbm=0|<%f",
-                            accountId, symbol, secType, lastOrder.getQuantity(), row.getDouble(benchmarkColumn), row.getDouble(benchmarkColumn) < 0));
                     signal.setValid(true);
                     signal.setUuid(UUID.randomUUID().toString());
                     signal.setAccountId(accountId);

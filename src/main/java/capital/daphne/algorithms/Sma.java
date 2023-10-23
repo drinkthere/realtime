@@ -39,16 +39,21 @@ public class Sma implements Algorithm {
 
     @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition) {
-        // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
-        int numStatsBars = ac.getNumStatsBars();
-        String benchmark = "sma" + numStatsBars;
-        Table df = addBenchMarkColumn(inputDf, benchmark, numStatsBars);
-        Row latestBar = df.row(df.rowCount() - 1);
-        double volatility = latestBar.getDouble("volatility");
-        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
-
-        // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
-        return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
+        try {
+            // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
+            int numStatsBars = ac.getNumStatsBars();
+            String benchmark = "sma" + numStatsBars;
+            Table df = addBenchMarkColumn(inputDf, benchmark, numStatsBars);
+            Row latestBar = df.row(df.rowCount() - 1);
+            double volatility = latestBar.getDouble("volatility");
+            double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+            // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
+            return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("save signal failed, error:" + e.getMessage());
+            return null;
+        }
     }
 
 

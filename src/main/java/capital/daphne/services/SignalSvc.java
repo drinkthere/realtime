@@ -103,6 +103,7 @@ public class SignalSvc {
             // 判断是否要下单
             Algorithm algoProcessor = algoProcessorMap.get(ac.getAccountId() + "." + key);
             Signal signal = algoProcessor.getSignal(df, position, maxPosition);
+
             if (signal != null && signal.isValid()) {
                 return signal;
             }
@@ -110,6 +111,7 @@ public class SignalSvc {
             // 如果没有open的信号，但是有close的配置，尝试获取信号
             if (ac.getCloseAlgo() != null) {
                 CloseAlgorithm closeAlgoProcessor = closeAlgoProcessorMap.get(ac.getAccountId() + "." + key);
+
                 if (closeAlgoProcessor != null) {
                     return closeAlgoProcessor.getSignal(df, position, maxPosition);
                 }

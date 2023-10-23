@@ -55,6 +55,7 @@ public class MACDSingal implements CloseAlgorithm {
         try (Jedis jedis = jedisPool.getResource()) {
             String redisKey = accountId + "." + symbol + "." + secType + ".ORDER_LIST";
             String storedOrderListJson = jedis.get(redisKey);
+            logger.info("redis|" + redisKey + "|" + storedOrderListJson);
             if (storedOrderListJson == null) {
                 return null;
             }
@@ -65,7 +66,6 @@ public class MACDSingal implements CloseAlgorithm {
             if (orderList == null && orderList.size() == 0) {
                 return null;
             }
-            logger.info("order list:" + orderList);
             // 如果有数据，判断是否针对最后一笔交易进行减仓（后需可扩展）
             Signal signal = new Signal();
             signal.setValid(false);
@@ -84,10 +84,10 @@ public class MACDSingal implements CloseAlgorithm {
 
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
-                logger.info(String.format("MACD_SIGNAL|accountId=%s|symbol=%s|secType=%s|quantity=%d|bm=%f|sbm=%f|%s",
-                        accountId, symbol, secType, lastOrder.getQuantity(), row.getDouble(benchmarkColumn), row.getDouble(signalBenchmarkColumn),
-                        (lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn)) ||
-                                (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn))));
+                logger.info(String.format("MACD_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|bm=%f|sbm=%f|%s",
+                        accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(), position, row.getDouble(benchmarkColumn), row.getDouble(signalBenchmarkColumn),
+                        (lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn) && position > 0) ||
+                                (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn) && position < 0)));
                 if ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn) && position > 0) ||
                         (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn) && position < 0)) {
                     signal.setValid(true);
@@ -101,6 +101,9 @@ public class MACDSingal implements CloseAlgorithm {
 
                     jedis.del(redisKey);
                 }
+            } else {
+                logger.info(String.format("MACD_SIGNAL_EXPIRED|accountId=%s|symbol=%s|secType=%s|orderId=%s|order_datetime=%s|now=%s",
+                        accountId, symbol, secType, lastOrder.getOrderId(), lastOrderDateTime, now));
             }
             return signal;
         } catch (Exception e) {
