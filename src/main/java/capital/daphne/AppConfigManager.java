@@ -80,7 +80,6 @@ public class AppConfigManager {
             private String exchange;
             private String primaryExchange;
             private String currency;
-            private double minTicker;
         }
 
         @Data

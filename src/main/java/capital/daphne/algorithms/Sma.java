@@ -100,7 +100,7 @@ public class Sma implements Algorithm {
         double shortThreshold = sma * (1 + sellSignalMargin);
 
         Signal signal = null;
-        if (!ac.getSecType().equals("FUT")) {
+        if (ac.getSecType().equals("STK")) {
             LocalTime portfolioCloseTime = LocalTime.of(15, 50, 0);
             LocalTime marketOpenTime = LocalTime.of(9, 30, 0);
             LocalTime marketCloseTime = LocalTime.of(16, 0, 0);
@@ -151,7 +151,7 @@ public class Sma implements Algorithm {
                 resetDatetime = null;
             }
         } else {
-            // FUT交易不受时间限制
+            // FUT/CASH/CFD交易不受时间限制
             logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d",
                     ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position));
 

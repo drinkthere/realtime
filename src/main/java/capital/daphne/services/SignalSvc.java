@@ -88,7 +88,7 @@ public class SignalSvc {
         String key = Utils.genKey(symbol, secType);
 
         // FUT全天交易，STK和CDF在正常交易区间交易
-        if (secType.equals("FUT") || Utils.isMarketOpen()) {
+        if (!secType.equals("STK") || Utils.isMarketOpen()) {
             // 获取5s bar信息
             Table df = barService.getDataTable(key, ac.getNumStatsBars());
             if (df == null) {
@@ -169,7 +169,6 @@ public class SignalSvc {
 
             // 获取 JSON 字符串形式的请求体
             String requestBody = requestData.toString();
-
 
             // 将请求数据写入输出流
             try (OutputStream os = connection.getOutputStream()) {
