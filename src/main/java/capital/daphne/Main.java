@@ -52,13 +52,17 @@ public class Main {
 
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
-                            Signal tradeSignal = signalSvc.getTradeSignal(ac);
-                            if (tradeSignal != null && tradeSignal.isValid()) {
-                                // 记录信号
-                                signalSvc.saveSignal(tradeSignal);
+                            try {
+                                Signal tradeSignal = signalSvc.getTradeSignal(ac);
+                                if (tradeSignal != null && tradeSignal.isValid()) {
+                                    // 记录信号
+                                    signalSvc.saveSignal(tradeSignal);
 
-                                // 发送下单信号
-                                signalSvc.sendSignal(tradeSignal);
+                                    // 发送下单信号
+                                    signalSvc.sendSignal(tradeSignal);
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
                         });
                     }

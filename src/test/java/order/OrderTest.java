@@ -17,10 +17,10 @@ public class OrderTest {
         signal.setValid(true);
         signal.setAccountId("DU6380369");
         signal.setUuid(UUID.randomUUID().toString());
-        signal.setSymbol("EUR");
+        signal.setSymbol("AUD");
         signal.setSecType("CASH");
-        signal.setWap(1.06442);
-        signal.setQuantity(1000);
+        signal.setWap(423.15);
+        signal.setQuantity(-315000);
         signal.setOrderType(Signal.OrderType.OPEN);
 
         signalSvc.sendSignal(signal);

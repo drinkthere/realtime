@@ -47,6 +47,7 @@ public class Sma implements Algorithm {
             Row latestBar = df.row(df.rowCount() - 1);
             double volatility = latestBar.getDouble("volatility");
             double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+            
             // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
             return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
         } catch (Exception e) {
