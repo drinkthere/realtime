@@ -1,10 +1,18 @@
 package capital.daphne.utils;
 
+import capital.daphne.JedisManager;
+import capital.daphne.models.ActionInfo;
+import capital.daphne.models.Signal;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
 import tech.tablesaw.api.DoubleColumn;
 import tech.tablesaw.columns.numbers.DoubleColumnType;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -104,5 +112,55 @@ public class Utils {
         bd = bd.setScale(decimals, RoundingMode.HALF_UP);
 
         return bd.doubleValue();
+    }
+
+    public static LocalDateTime loadUsDateTime(String datetime) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
+        ZonedDateTime zonedDateTime = ZonedDateTime.parse(datetime, formatter);
+        return zonedDateTime.toLocalDateTime();
+    }
+
+    public static void clearLastActionInfo(String redisKey) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.del(redisKey);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static ActionInfo getLastActionInfo(String redisKey) {
+        ActionInfo actionInfo = new ActionInfo();
+        actionInfo.setAction(Signal.TradeActionType.NO_ACTION);
+        actionInfo.setDateTime(null);
+
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String storedValue = jedis.get(redisKey);
+            if (storedValue == null) {
+                return actionInfo;
+            }
+
+            String[] split = storedValue.split("\\|");
+            String action = split[0];
+            String datetime = split[1];
+            switch (action) {
+                case "NO_ACTION":
+                    break;
+                case "BUY":
+                    actionInfo.setAction(Signal.TradeActionType.BUY);
+                    actionInfo.setDateTime(Utils.loadUsDateTime(datetime));
+                    break;
+                case "SELL":
+                    actionInfo.setAction(Signal.TradeActionType.SELL);
+                    actionInfo.setDateTime(Utils.loadUsDateTime(datetime));
+                    break;
+            }
+            return actionInfo;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return actionInfo;
+        }
     }
 }

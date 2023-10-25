@@ -1,6 +1,7 @@
 package capital.daphne.algorithms;
 
 import capital.daphne.AppConfigManager;
+import capital.daphne.models.ActionInfo;
 import capital.daphne.models.Signal;
 import capital.daphne.utils.Utils;
 import org.slf4j.Logger;
@@ -12,43 +13,41 @@ import tech.tablesaw.api.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 public class Ema implements Algorithm {
     private static final Logger logger = LoggerFactory.getLogger(Ema.class);
 
     private AppConfigManager.AppConfig.AlgorithmConfig ac;
-    private Signal.TradeActionType lastAction;
-
-    private LocalDateTime lastBuyDateTime;
-
-    private LocalDateTime lastSellDateTime;
 
     private LocalDateTime resetDatetime;
 
+    private String benchmarkColumnName;
+
     public Ema(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
         ac = algorithmConfig;
-
-        lastAction = Signal.TradeActionType.NO_ACTION;
-        lastBuyDateTime = null;
-        lastSellDateTime = null;
         resetDatetime = null;
 
     }
 
     @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition) {
-        int numStatsBars = ac.getNumStatsBars();
-        String benchmark = "ema" + numStatsBars;
-        Table df = addBenchMarkColumn(inputDf, benchmark, numStatsBars);
-        Row latestBar = df.row(df.rowCount() - 1);
-        double volatility = latestBar.getDouble("volatility");
-        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+        try {
+            int numStatsBars = ac.getNumStatsBars();
+            benchmarkColumnName = "ema" + numStatsBars;
 
-        // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
-        return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
+            Table df = addBenchMarkColumn(inputDf, benchmarkColumnName, numStatsBars);
+            Row latestBar = df.row(df.rowCount() - 1);
+            double volatility = latestBar.getDouble("volatility");
+            double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+
+            // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
+            return processPriceBar(latestBar, volatilityMultiplier, benchmarkColumnName, position, maxPosition);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("save signal failed, error:" + e.getMessage());
+            return null;
+        }
     }
 
 
@@ -70,10 +69,21 @@ public class Ema implements Algorithm {
     }
 
     private Signal processPriceBar(Row row, double volatilityMultiplier, String benchmarkColumn, int position, int maxPosition) {
-        String date_us = row.getString("date_us");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
-        ZonedDateTime zonedDateTime = ZonedDateTime.parse(date_us, formatter);
-        LocalDateTime datetime = zonedDateTime.toLocalDateTime();
+        LocalDateTime lastBuyDateTime = null;
+        LocalDateTime lastSellDateTime = null;
+
+        String redisKey = String.format("%s.%s.%s.%s.LAST_ACTION", ac.getAccountId(), ac.getSymbol(), ac.getSecType(), benchmarkColumn);
+        ActionInfo lastActionInfo = Utils.getLastActionInfo(redisKey);
+        logger.info(redisKey + "|" + lastActionInfo);
+
+        Signal.TradeActionType lastAction = lastActionInfo.getAction();
+        if (lastAction.equals(Signal.TradeActionType.BUY)) {
+            lastBuyDateTime = lastActionInfo.getDateTime();
+        } else if (lastAction.equals(Signal.TradeActionType.SELL)) {
+            lastSellDateTime = lastActionInfo.getDateTime();
+        }
+
+        LocalDateTime datetime = Utils.loadUsDateTime(row.getString("date_us"));
         LocalTime time = datetime.toLocalTime();
 
         double[] signalMargins = calculateSignalMargin(volatilityMultiplier, position, maxPosition);
@@ -98,7 +108,7 @@ public class Ema implements Algorithm {
         double shortThreshold = ema * (1 + sellSignalMargin);
 
         Signal signal = null;
-        if (!ac.getSecType().equals("FUT")) {
+        if (ac.getSecType().equals("STK")) {
             LocalTime portfolioCloseTime = LocalTime.of(15, 50, 0);
             LocalTime marketOpenTime = LocalTime.of(9, 30, 0);
             LocalTime marketCloseTime = LocalTime.of(16, 0, 0);
@@ -111,14 +121,10 @@ public class Ema implements Algorithm {
                         && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                         && (position < maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                     signal = fulfillSignal(vwap, ac.getOrderSize(), Signal.OrderType.OPEN);
-                    lastAction = Signal.TradeActionType.BUY;
-                    lastBuyDateTime = datetime;
                 } else if (vwap >= shortThreshold
                         && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                         && (position > -maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                     signal = fulfillSignal(vwap, -ac.getOrderSize(), Signal.OrderType.OPEN);
-                    lastAction = Signal.TradeActionType.SELL;
-                    lastSellDateTime = datetime;
                 } else if (Math.abs(position) >= maxPosition * ac.getHardLimit() && ac.getHardLimitClosePositionMethod().equals("RESET") && lastAction != null) {
                     if (resetDatetime == null) {
                         resetDatetime = datetime.plusSeconds(ac.getMinDurationWhenReset());
@@ -129,27 +135,19 @@ public class Ema implements Algorithm {
                     }
                     if (datetime.isAfter(resetDatetime) || datetime.equals(resetDatetime)) {
                         signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                        lastAction = null;
-                        lastBuyDateTime = null;
-                        lastSellDateTime = null;
                         resetDatetime = null;
                     }
                 }
             } else if ((time.isAfter(portfolioCloseTime) && time.isBefore(marketCloseTime) || time.equals(portfolioCloseTime) || time.equals(marketCloseTime))
                     && ac.isPortfolioRequiredToClose()) {
                 signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                lastAction = null;
-                lastBuyDateTime = null;
-                lastSellDateTime = null;
                 resetDatetime = null;
             } else {
-                lastAction = null;
-                lastBuyDateTime = null;
-                lastSellDateTime = null;
+                Utils.clearLastActionInfo(redisKey);
                 resetDatetime = null;
             }
         } else {
-            // FUT交易不受时间限制
+            // FUT/CASH/CFD交易不受时间限制
             logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d",
                     ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position));
 
@@ -157,23 +155,16 @@ public class Ema implements Algorithm {
                     && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                     && ((position + ac.getOrderSize()) <= maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                 signal = fulfillSignal(vwap, ac.getOrderSize(), Signal.OrderType.OPEN);
-                lastAction = Signal.TradeActionType.BUY;
-                lastBuyDateTime = datetime;
             } else if (vwap >= shortThreshold
                     && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                     && ((position - ac.getOrderSize()) >= -maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                 signal = fulfillSignal(vwap, -ac.getOrderSize(), Signal.OrderType.OPEN);
-                lastAction = Signal.TradeActionType.SELL;
-                lastSellDateTime = datetime;
             } else if (Math.abs(position) >= maxPosition * ac.getHardLimit() && ac.getHardLimitClosePositionMethod().equals("RESET") && lastAction != null) {
                 if (resetDatetime == null) {
                     resetDatetime = datetime.plusSeconds(ac.getMinDurationWhenReset());
                 }
                 if (datetime.isAfter(resetDatetime) || datetime.equals(resetDatetime)) {
                     signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                    lastAction = null;
-                    lastBuyDateTime = null;
-                    lastSellDateTime = null;
                     resetDatetime = null;
                 }
             }
@@ -203,6 +194,7 @@ public class Ema implements Algorithm {
         signal.setWap(vwap);
         signal.setQuantity(position);
         signal.setOrderType(orderType);
+        signal.setBenchmarkColumn(benchmarkColumnName);
         return signal;
     }
 }

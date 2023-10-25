@@ -83,7 +83,7 @@
       "currency": "USD"
     },
     {
-      "symbol": "EUR",
+      "symbol": "AUD",
       "secType": "CASH",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
@@ -92,30 +92,30 @@
       "currency": "USD"
     },
     {
-      "symbol": "EUR",
+      "symbol": "USD",
       "secType": "CFD",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
       "exchange": "SMART",
       "primaryExchange": "",
-      "currency": "USD"
+      "currency": "JPY"
     }
   ],
   "algorithms": [
     {
       "name": "SMA",
       "accountId": "DU6380369",
-      "symbol": "EUR",
+      "symbol": "AUD",
       "secType": "CASH",
       "portfolioRequiredToClose": false,
       "maxPortfolioPositions": 188200,
       "positionSignalMarginOffset": 0,
-      "orderSize": 18800,
+      "orderSize": 180000,
       "minIntervalBetweenSignal": 72,
       "signalMargin": 0.0002,
       "numStatsBars": 18,
       "volatilityA": 0,
-      "volatilityB": 60,
+      "volatilityB": 20,
       "volatilityC": 0,
       "hardLimit": 1,
       "hardLimitClosePositionMethod": "STOP",
@@ -131,12 +131,12 @@
     {
       "name": "SMA",
       "accountId": "DU6380369",
-      "symbol": "EUR",
-      "secType": "CFD",
+      "symbol": "USD",
+      "secType": "CASH",
       "portfolioRequiredToClose": false,
       "maxPortfolioPositions": 188200,
       "positionSignalMarginOffset": 0,
-      "orderSize": 18800,
+      "orderSize": 50000,
       "minIntervalBetweenSignal": 72,
       "signalMargin": 0.0002,
       "numStatsBars": 18,

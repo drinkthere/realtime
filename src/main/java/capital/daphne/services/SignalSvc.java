@@ -166,6 +166,7 @@ public class SignalSvc {
             requestData.put("wap", signal.getWap());
             requestData.put("quantity", signal.getQuantity());
             requestData.put("orderType", signal.getOrderType());
+            requestData.put("benchmarkColumn", signal.getBenchmarkColumn());
 
             // 获取 JSON 字符串形式的请求体
             String requestBody = requestData.toString();

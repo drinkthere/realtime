@@ -1,7 +1,9 @@
 package capital.daphne.algorithms;
 
 import capital.daphne.AppConfigManager;
+import capital.daphne.models.ActionInfo;
 import capital.daphne.models.Signal;
+import capital.daphne.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tech.tablesaw.api.DoubleColumn;
@@ -11,30 +13,20 @@ import tech.tablesaw.api.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 public class Sma implements Algorithm {
     private static final Logger logger = LoggerFactory.getLogger(Sma.class);
 
     private AppConfigManager.AppConfig.AlgorithmConfig ac;
-    private Signal.TradeActionType lastAction;
-
-    private LocalDateTime lastBuyDateTime;
-
-    private LocalDateTime lastSellDateTime;
 
     private LocalDateTime resetDatetime;
 
+    private String benchmarkColumnName;
+
     public Sma(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
         ac = algorithmConfig;
-
-        lastAction = Signal.TradeActionType.NO_ACTION;
-        lastBuyDateTime = null;
-        lastSellDateTime = null;
         resetDatetime = null;
-
     }
 
     @Override
@@ -42,14 +34,14 @@ public class Sma implements Algorithm {
         try {
             // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
             int numStatsBars = ac.getNumStatsBars();
-            String benchmark = "sma" + numStatsBars;
-            Table df = addBenchMarkColumn(inputDf, benchmark, numStatsBars);
+            benchmarkColumnName = "sma" + numStatsBars;
+            Table df = addBenchMarkColumn(inputDf, benchmarkColumnName, numStatsBars);
             Row latestBar = df.row(df.rowCount() - 1);
             double volatility = latestBar.getDouble("volatility");
             double volatilityMultiplier = calToVolatilityMultiplier(volatility);
-            
+
             // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
-            return processPriceBar(latestBar, volatilityMultiplier, benchmark, position, maxPosition);
+            return processPriceBar(latestBar, volatilityMultiplier, benchmarkColumnName, position, maxPosition);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("save signal failed, error:" + e.getMessage());
@@ -73,10 +65,20 @@ public class Sma implements Algorithm {
     }
 
     private Signal processPriceBar(Row row, double volatilityMultiplier, String benchmarkColumn, int position, int maxPosition) {
-        String date_us = row.getString("date_us");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
-        ZonedDateTime zonedDateTime = ZonedDateTime.parse(date_us, formatter);
-        LocalDateTime datetime = zonedDateTime.toLocalDateTime();
+        LocalDateTime lastBuyDateTime = null;
+        LocalDateTime lastSellDateTime = null;
+
+        String redisKey = String.format("%s.%s.%s.%s.LAST_ACTION", ac.getAccountId(), ac.getSymbol(), ac.getSecType(), benchmarkColumn);
+        ActionInfo lastActionInfo = Utils.getLastActionInfo(redisKey);
+
+        Signal.TradeActionType lastAction = lastActionInfo.getAction();
+        if (lastAction.equals(Signal.TradeActionType.BUY)) {
+            lastBuyDateTime = lastActionInfo.getDateTime();
+        } else if (lastAction.equals(Signal.TradeActionType.SELL)) {
+            lastSellDateTime = lastActionInfo.getDateTime();
+        }
+        
+        LocalDateTime datetime = Utils.loadUsDateTime(row.getString("date_us"));
         LocalTime time = datetime.toLocalTime();
 
         double[] signalMargins = calculateSignalMargin(volatilityMultiplier, position, maxPosition);
@@ -114,14 +116,10 @@ public class Sma implements Algorithm {
                         && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                         && (position < maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                     signal = fulfillSignal(vwap, ac.getOrderSize(), Signal.OrderType.OPEN);
-                    lastAction = Signal.TradeActionType.BUY;
-                    lastBuyDateTime = datetime;
                 } else if (vwap >= shortThreshold
                         && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                         && (position > -maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                     signal = fulfillSignal(vwap, -ac.getOrderSize(), Signal.OrderType.OPEN);
-                    lastAction = Signal.TradeActionType.SELL;
-                    lastSellDateTime = datetime;
                 } else if (Math.abs(position) >= maxPosition * ac.getHardLimit() && ac.getHardLimitClosePositionMethod().equals("RESET") && lastAction != null) {
                     if (resetDatetime == null) {
                         resetDatetime = datetime.plusSeconds(ac.getMinDurationWhenReset());
@@ -132,23 +130,15 @@ public class Sma implements Algorithm {
                     }
                     if (datetime.isAfter(resetDatetime) || datetime.equals(resetDatetime)) {
                         signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                        lastAction = null;
-                        lastBuyDateTime = null;
-                        lastSellDateTime = null;
                         resetDatetime = null;
                     }
                 }
             } else if ((time.isAfter(portfolioCloseTime) && time.isBefore(marketCloseTime) || time.equals(portfolioCloseTime) || time.equals(marketCloseTime))
                     && ac.isPortfolioRequiredToClose()) {
                 signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                lastAction = null;
-                lastBuyDateTime = null;
-                lastSellDateTime = null;
                 resetDatetime = null;
             } else {
-                lastAction = null;
-                lastBuyDateTime = null;
-                lastSellDateTime = null;
+                Utils.clearLastActionInfo(redisKey);
                 resetDatetime = null;
             }
         } else {
@@ -160,23 +150,16 @@ public class Sma implements Algorithm {
                     && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                     && ((position + ac.getOrderSize()) <= maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                 signal = fulfillSignal(vwap, ac.getOrderSize(), Signal.OrderType.OPEN);
-                lastAction = Signal.TradeActionType.BUY;
-                lastBuyDateTime = datetime;
             } else if (vwap >= shortThreshold
                     && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                     && ((position - ac.getOrderSize()) >= -maxPosition * ac.getHardLimit()) && resetDatetime == null) {
                 signal = fulfillSignal(vwap, -ac.getOrderSize(), Signal.OrderType.OPEN);
-                lastAction = Signal.TradeActionType.SELL;
-                lastSellDateTime = datetime;
             } else if (Math.abs(position) >= maxPosition * ac.getHardLimit() && ac.getHardLimitClosePositionMethod().equals("RESET") && lastAction != null) {
                 if (resetDatetime == null) {
                     resetDatetime = datetime.plusSeconds(ac.getMinDurationWhenReset());
                 }
                 if (datetime.isAfter(resetDatetime) || datetime.equals(resetDatetime)) {
                     signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                    lastAction = null;
-                    lastBuyDateTime = null;
-                    lastSellDateTime = null;
                     resetDatetime = null;
                 }
             }
@@ -206,6 +189,7 @@ public class Sma implements Algorithm {
         signal.setWap(vwap);
         signal.setQuantity(position);
         signal.setOrderType(orderType);
+        signal.setBenchmarkColumn(benchmarkColumnName);
         return signal;
     }
 }

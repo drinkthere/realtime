@@ -13,6 +13,7 @@ public class Signal {
     private double wap;
     private int quantity;
     private OrderType orderType;
+    private String benchmarkColumn;
 
     public enum TradeActionType {
         NO_ACTION, BUY, SELL;

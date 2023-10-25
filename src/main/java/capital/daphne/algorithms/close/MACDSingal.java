@@ -90,6 +90,8 @@ public class MACDSingal implements CloseAlgorithm {
                                 (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn) && position < 0)));
                 if ((lastOrder.getQuantity() > 0 && row.getDouble(benchmarkColumn) < row.getDouble(signalBenchmarkColumn) && position > 0) ||
                         (lastOrder.getQuantity() < 0 && row.getDouble(benchmarkColumn) > row.getDouble(signalBenchmarkColumn) && position < 0)) {
+
+                    String benchmarkColumn = ac.getName().toLowerCase() + ac.getNumStatsBars();
                     signal.setValid(true);
                     signal.setAccountId(accountId);
                     signal.setUuid(UUID.randomUUID().toString());
@@ -98,7 +100,7 @@ public class MACDSingal implements CloseAlgorithm {
                     signal.setWap(row.getDouble("vwap"));
                     signal.setQuantity(-lastOrder.getQuantity());
                     signal.setOrderType(Signal.OrderType.CLOSE);
-
+                    signal.setBenchmarkColumn(benchmarkColumn);
                     jedis.del(redisKey);
                 }
             } else {
