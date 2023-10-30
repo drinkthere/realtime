@@ -19,12 +19,12 @@ public class OrderTest {
         SignalSvc signalSvc = new SignalSvc(appConfig.getAlgorithms());
         Signal signal = new Signal();
         signal.setValid(true);
-        signal.setAccountId("DU6380369");
+        signal.setAccountId("DU5816868");
         signal.setUuid(UUID.randomUUID().toString());
-        signal.setSymbol("AUD");
+        signal.setSymbol("EUR");
         signal.setSecType("CASH");
-        signal.setWap(423.15);
-        signal.setQuantity(-50000);
+        signal.setWap(1.05628);
+        signal.setQuantity(20000);
         signal.setOrderType(Signal.OrderType.CLOSE);
         signal.setBenchmarkColumn("sma18");
 

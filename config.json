@@ -104,55 +104,21 @@
   "algorithms": [
     {
       "name": "SMA",
-      "accountId": "DU6380369",
-      "symbol": "AUD",
+      "accountId": "DU5816868",
+      "symbol": "EUR",
       "secType": "CASH",
       "portfolioRequiredToClose": false,
-      "maxPortfolioPositions": 188200,
+      "maxPortfolioPositions": 20000,
       "positionSignalMarginOffset": 0,
-      "orderSize": 180000,
+      "orderSize": 20000,
       "minIntervalBetweenSignal": 72,
       "signalMargin": 0.0002,
       "numStatsBars": 18,
       "volatilityA": 0,
-      "volatilityB": 20,
+      "volatilityB": 0,
       "volatilityC": 0,
       "hardLimit": 1,
-      "hardLimitClosePositionMethod": "STOP",
-      "closeAlgo": {
-        "method": "MACD_SIGNAL",
-        "minDurationBeforeClose": 20,
-        "maxDurationToClose": 9999999,
-        "macdShortNumStatsBar": 12,
-        "macdLongNumStatsBar": 60,
-        "macdSignalNumStatsBar": 9
-      }
-    },
-    {
-      "name": "SMA",
-      "accountId": "DU6380369",
-      "symbol": "USD",
-      "secType": "CASH",
-      "portfolioRequiredToClose": false,
-      "maxPortfolioPositions": 188200,
-      "positionSignalMarginOffset": 0,
-      "orderSize": 50000,
-      "minIntervalBetweenSignal": 72,
-      "signalMargin": 0.0002,
-      "numStatsBars": 18,
-      "volatilityA": 0,
-      "volatilityB": 30,
-      "volatilityC": 0,
-      "hardLimit": 1,
-      "hardLimitClosePositionMethod": "STOP",
-      "closeAlgo": {
-        "method": "MACD_SIGNAL",
-        "minDurationBeforeClose": 20,
-        "maxDurationToClose": 9999999,
-        "macdShortNumStatsBar": 12,
-        "macdLongNumStatsBar": 60,
-        "macdSignalNumStatsBar": 9
-      }
+      "hardLimitClosePositionMethod": "STOP"
     }
   ]
 }
