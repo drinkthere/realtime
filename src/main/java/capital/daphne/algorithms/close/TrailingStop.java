@@ -2,7 +2,6 @@ package capital.daphne.algorithms.close;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
-import capital.daphne.algorithms.Sma;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
 import capital.daphne.models.WapMaxMin;
@@ -22,7 +21,7 @@ import java.util.UUID;
 
 public class TrailingStop implements CloseAlgorithm {
 
-    private static final Logger logger = LoggerFactory.getLogger(Sma.class);
+    private static final Logger logger = LoggerFactory.getLogger(TrailingStop.class);
     private final AppConfigManager.AppConfig.AlgorithmConfig ac;
 
     public TrailingStop(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
@@ -67,6 +66,7 @@ public class TrailingStop implements CloseAlgorithm {
             }
 
             objectMapper = new ObjectMapper();
+            logger.info("storedWapMaxMinJson:" + storedWapMaxMinJson);
             WapMaxMin wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
             });
             if (wapMaxMin == null || wapMaxMin.getMaxPriceSinceLastOrder() == Double.MIN_VALUE || wapMaxMin.getMinPriceSinceLastOrder() == Double.MAX_VALUE) {
@@ -85,7 +85,7 @@ public class TrailingStop implements CloseAlgorithm {
 
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
-                logger.info(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%f|sbm=%f|%s",
+                logger.info(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%b|sbm=%b",
                         accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(), position,
                         wapMaxMin.getMaxPriceSinceLastOrder(), wapMaxMin.getMinPriceSinceLastOrder(),
                         row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxPriceSinceLastOrder(),
@@ -107,7 +107,8 @@ public class TrailingStop implements CloseAlgorithm {
             }
             return signal;
         } catch (Exception e) {
-            logger.error(String.format("get order list in redis failed, accountId=%s, symbol=%s, secType=%s error=%s",
+            e.printStackTrace();
+            logger.error(String.format("get trailingStop close signal failed, accountId=%s, symbol=%s, secType=%s error=%s",
                     accountId, symbol, secType, e.getMessage()));
             return null;
         }

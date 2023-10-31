@@ -2,7 +2,12 @@ package order;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.models.Signal;
+import capital.daphne.models.WapMaxMin;
 import capital.daphne.services.SignalSvc;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -86,5 +91,22 @@ public class OrderTest {
         bdBidPrice = bdBidPrice.divide(minTickBigDecimal, 0, RoundingMode.HALF_UP).multiply(minTickBigDecimal);
 
         return bdBidPrice.doubleValue();
+    }
+
+    @Test
+    public void parseWapMaxMin() {
+        try {
+            String storedWapMaxMinJson = "{\"maxPriceSinceLastOrder\":414.7813292065279,\"minPriceSinceLastOrder\":414.5507109157195}";
+            ObjectMapper objectMapper = new ObjectMapper();
+            WapMaxMin wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
+            });
+            boolean b = wapMaxMin.getMaxPriceSinceLastOrder() == Double.MIN_VALUE || wapMaxMin.getMinPriceSinceLastOrder() == Double.MAX_VALUE;
+            System.out.println(String.format("xx %b", b));
+        } catch (JsonMappingException e) {
+            throw new RuntimeException(e);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
     }
 }
