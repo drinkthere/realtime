@@ -1,5 +1,6 @@
 package capital.daphne;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 
@@ -105,6 +106,7 @@ public class AppConfigManager {
         }
 
         @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
         public static class CloseAlgorithmConfig {
             private String method;
             private int minDurationBeforeClose;
