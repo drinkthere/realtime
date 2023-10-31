@@ -5,6 +5,8 @@ import capital.daphne.models.Signal;
 import capital.daphne.services.SignalSvc;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZonedDateTime;
@@ -19,13 +21,13 @@ public class OrderTest {
         SignalSvc signalSvc = new SignalSvc(appConfig.getAlgorithms());
         Signal signal = new Signal();
         signal.setValid(true);
-        signal.setAccountId("DU5816868");
+        signal.setAccountId("DU6380369");
         signal.setUuid(UUID.randomUUID().toString());
         signal.setSymbol("EUR");
         signal.setSecType("CASH");
         signal.setWap(1.05628);
         signal.setQuantity(20000);
-        signal.setOrderType(Signal.OrderType.CLOSE);
+        signal.setOrderType(Signal.OrderType.OPEN);
         signal.setBenchmarkColumn("sma18");
 
         signalSvc.sendSignal(signal);
@@ -59,5 +61,30 @@ public class OrderTest {
         String action = split[0];
         String datetime = split[1];
         System.out.println(action + "-" + datetime);
+    }
+
+    @Test
+    public void calLimitPrice() {
+        double bidPrice = 1.251911141356789;
+        float slipage = 0.001f;
+        double minTicker = 0.00005;
+        int decimals = 5;
+
+        double lmtPrice = formatLmtPrice(bidPrice / (1 + slipage), decimals, minTicker);
+
+        System.out.println(lmtPrice);
+    }
+
+    private double formatLmtPrice(double bidPrice, int decimals, double minTick) {
+        BigDecimal bdBidPrice = BigDecimal.valueOf(bidPrice);
+        BigDecimal minTickBigDecimal = BigDecimal.valueOf(minTick);
+
+        // 1. 保留小数位不超过 decimals
+        bdBidPrice = bdBidPrice.setScale(decimals, RoundingMode.HALF_UP);
+
+        // 2. 计算最接近的满足 minTick 的价格
+        bdBidPrice = bdBidPrice.divide(minTickBigDecimal, 0, RoundingMode.HALF_UP).multiply(minTickBigDecimal);
+
+        return bdBidPrice.doubleValue();
     }
 }

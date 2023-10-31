@@ -104,21 +104,27 @@
   "algorithms": [
     {
       "name": "SMA",
-      "accountId": "DU5816868",
+      "accountId": "DU6380369",
       "symbol": "EUR",
       "secType": "CASH",
       "portfolioRequiredToClose": false,
-      "maxPortfolioPositions": 20000,
+      "maxPortfolioPositions": 188000,
       "positionSignalMarginOffset": 0,
-      "orderSize": 20000,
+      "orderSize": 188000,
       "minIntervalBetweenSignal": 72,
-      "signalMargin": 0.0002,
+      "signalMargin": 0.0001,
       "numStatsBars": 18,
       "volatilityA": 0,
       "volatilityB": 0,
       "volatilityC": 0,
       "hardLimit": 1,
-      "hardLimitClosePositionMethod": "STOP"
+      "hardLimitClosePositionMethod": "STOP",
+      "closeAlgo": {
+        "method": "TRAILING_STOP_SIGNAL",
+        "minDurationBeforeClose": 20,
+        "maxDurationToClose": 9999999,
+        "trailingStopThreshold": 0.0002
+      }
     }
   ]
 }

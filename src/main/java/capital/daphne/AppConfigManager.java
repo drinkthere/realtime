@@ -109,9 +109,13 @@ public class AppConfigManager {
             private String method;
             private int minDurationBeforeClose;
             private int maxDurationToClose;
+            // macd related
             private int macdShortNumStatsBar;
             private int macdLongNumStatsBar;
             private int macdSignalNumStatsBar;
+
+            // trailing stop related
+            private double trailingStopThreshold;
         }
     }
 

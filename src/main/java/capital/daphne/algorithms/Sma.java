@@ -77,7 +77,7 @@ public class Sma implements Algorithm {
         } else if (lastAction.equals(Signal.TradeActionType.SELL)) {
             lastSellDateTime = lastActionInfo.getDateTime();
         }
-        
+
         LocalDateTime datetime = Utils.loadUsDateTime(row.getString("date_us"));
         LocalTime time = datetime.toLocalTime();
 
@@ -86,6 +86,7 @@ public class Sma implements Algorithm {
         double sellSignalMargin = signalMargins[1];
         // System.out.println(buySignalMargin + "|" + sellSignalMargin + "|" + position + "|" + volatilityMultiplier);
         double vwap = row.getDouble("vwap");
+        vwap -= 0.0002;
         double sma = row.getDouble(benchmarkColumn);
 
         long buyIntervalSeconds = 0L;

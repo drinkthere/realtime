@@ -8,6 +8,7 @@ import capital.daphne.algorithms.Sma;
 import capital.daphne.algorithms.close.CloseAlgorithm;
 import capital.daphne.algorithms.close.MACDSingal;
 import capital.daphne.algorithms.close.MACDZero;
+import capital.daphne.algorithms.close.TrailingStop;
 import capital.daphne.models.Signal;
 import capital.daphne.utils.Utils;
 import org.json.JSONObject;
@@ -72,6 +73,9 @@ public class SignalSvc {
                         break;
                     case "MACD_ZERO":
                         closeAlgoProcess = new MACDZero(ac);
+                        break;
+                    case "TRAILING_STOP_SIGNAL":
+                        closeAlgoProcess = new TrailingStop(ac);
                         break;
                     default:
                         break;
