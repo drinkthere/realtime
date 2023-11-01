@@ -86,7 +86,6 @@ public class Sma implements Algorithm {
         double sellSignalMargin = signalMargins[1];
         // System.out.println(buySignalMargin + "|" + sellSignalMargin + "|" + position + "|" + volatilityMultiplier);
         double vwap = row.getDouble("vwap");
-  
         double sma = row.getDouble(benchmarkColumn);
 
         long buyIntervalSeconds = 0L;

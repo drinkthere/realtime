@@ -53,6 +53,12 @@ public class Main {
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
                             try {
+                                String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                boolean inProgress = Utils.isInProgress(inProgressKey);
+                                if (inProgress) {
+                                    logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                    return;
+                                }
                                 Signal tradeSignal = signalSvc.getTradeSignal(ac);
                                 if (tradeSignal != null && tradeSignal.isValid()) {
                                     // 记录信号
@@ -60,6 +66,10 @@ public class Main {
 
                                     // 发送下单信号
                                     signalSvc.sendSignal(tradeSignal);
+
+                                    // 加锁，60s过期，订单成交也会解锁
+                                    Utils.setInProgress(inProgressKey);
+
                                 }
                             } catch (Exception e) {
                                 e.printStackTrace();

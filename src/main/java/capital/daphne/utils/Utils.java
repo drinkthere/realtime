@@ -163,4 +163,30 @@ public class Utils {
             return actionInfo;
         }
     }
+
+    public static boolean isInProgress(String redisKey) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String value = jedis.get(redisKey);
+            if (value == null) {
+                return false;
+            }
+            return value.equals("true");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static void setInProgress(String redisKey) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.set(redisKey, "true");
+            long timestamp = System.currentTimeMillis() / 1000 + 60;
+            jedis.expireAt(redisKey, timestamp);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
