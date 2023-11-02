@@ -2,8 +2,8 @@ package sma;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
-import capital.daphne.algorithms.Sma;
-import capital.daphne.algorithms.close.CloseAlgorithm;
+import capital.daphne.algorithms.AlgorithmProcessor;
+import capital.daphne.algorithms.SMA;
 import capital.daphne.algorithms.close.MACDSingal;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
@@ -29,9 +29,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class SmaTest {
+public class SMATest {
 
-    private static final Logger logger = LoggerFactory.getLogger(SmaTest.class);
+    private static final Logger logger = LoggerFactory.getLogger(SMATest.class);
 
     private AppConfigManager.AppConfig.AlgorithmConfig ac;
 
@@ -48,8 +48,8 @@ public class SmaTest {
         AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
         List<AppConfigManager.AppConfig.AlgorithmConfig> algorithms = appConfig.getAlgorithms();
         ac = algorithms.get(0);
-        Sma sma = new Sma(ac);
-        CloseAlgorithm closeProcessor = new MACDSingal(ac);
+        SMA sma = new SMA(ac);
+        AlgorithmProcessor closeProcessor = new MACDSingal(ac);
 
         String currentDirectory = System.getProperty("user.dir");
 

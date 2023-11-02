@@ -2,7 +2,8 @@ package capital.daphne.algorithms.close;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
-import capital.daphne.algorithms.Sma;
+import capital.daphne.algorithms.AlgorithmProcessor;
+import capital.daphne.algorithms.SMA;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
 import capital.daphne.utils.Utils;
@@ -21,8 +22,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
-public class MACDSingal implements CloseAlgorithm {
-    private static final Logger logger = LoggerFactory.getLogger(Sma.class);
+public class MACDSingal implements AlgorithmProcessor {
+    private static final Logger logger = LoggerFactory.getLogger(SMA.class);
     private final AppConfigManager.AppConfig.AlgorithmConfig ac;
     private final AppConfigManager.AppConfig.CloseAlgorithmConfig cac;
 

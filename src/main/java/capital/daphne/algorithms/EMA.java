@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.UUID;
 
-public class Sma implements Algorithm {
-    private static final Logger logger = LoggerFactory.getLogger(Sma.class);
+public class EMA implements AlgorithmProcessor {
+    private static final Logger logger = LoggerFactory.getLogger(EMA.class);
 
     private AppConfigManager.AppConfig.AlgorithmConfig ac;
 
@@ -24,7 +24,7 @@ public class Sma implements Algorithm {
 
     private String benchmarkColumnName;
 
-    public Sma(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
+    public EMA(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
         ac = algorithmConfig;
         resetDatetime = null;
     }
@@ -32,16 +32,10 @@ public class Sma implements Algorithm {
     @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition) {
         try {
-            // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
-            int numStatsBars = ac.getNumStatsBars();
-            benchmarkColumnName = "sma" + numStatsBars;
-            Table df = addBenchMarkColumn(inputDf, benchmarkColumnName, numStatsBars);
-            Row latestBar = df.row(df.rowCount() - 1);
-            double volatility = latestBar.getDouble("volatility");
-            double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+            Table df = preProcess(inputDf);
 
-            // System.out.println(latestBar.getString("date_us") + "|" + latestBar.getDouble("vwap") + "|" + latestBar.getDouble(benchmark) + "|" + volatility + "|" + volatilityMultiplier);
-            return processPriceBar(latestBar, volatilityMultiplier, benchmarkColumnName, position, maxPosition);
+            Row latestBar = df.row(df.rowCount() - 1);
+            return processToGetSignal(latestBar, position, maxPosition);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("save signal failed, error:" + e.getMessage());
@@ -49,12 +43,16 @@ public class Sma implements Algorithm {
         }
     }
 
+    private Table preProcess(Table df) {
+        // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
+        int numStatsBars = ac.getNumStatsBars();
+        benchmarkColumnName = "ema" + numStatsBars;
 
-    private Table addBenchMarkColumn(Table df, String benchmark, int numStatsBars) {
-        DoubleColumn vwap = df.doubleColumn("prev_vwap");
-        DoubleColumn sma = vwap.rolling(numStatsBars).mean();
-        sma.setName(benchmark);
-        df.addColumns(sma);
+        int period = numStatsBars;
+        double multiplier = 2.0 / (period + 1);
+        DoubleColumn prev_vwap = df.doubleColumn("prev_vwap");
+        DoubleColumn ema = Utils.ewm(prev_vwap, multiplier, benchmarkColumnName, true, false, period, period - 1);
+        df.addColumns(ema);
         return df;
     }
 
@@ -64,12 +62,16 @@ public class Sma implements Algorithm {
                 ac.getVolatilityC() * volatility * volatility;
     }
 
-    private Signal processPriceBar(Row row, double volatilityMultiplier, String benchmarkColumn, int position, int maxPosition) {
-        LocalDateTime lastBuyDateTime = null;
-        LocalDateTime lastSellDateTime = null;
+    private Signal processToGetSignal(Row row, int position, int maxPosition) {
+        double volatility = row.getDouble("volatility");
+        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
 
-        String redisKey = String.format("%s.%s.%s.%s.LAST_ACTION", ac.getAccountId(), ac.getSymbol(), ac.getSecType(), benchmarkColumn);
+        LocalDateTime lastSellDateTime = null;
+        LocalDateTime lastBuyDateTime = null;
+
+        String redisKey = String.format("%s:%s:%s:%s:LAST_ACTION", ac.getAccountId(), ac.getSymbol(), ac.getSecType(), benchmarkColumnName);
         ActionInfo lastActionInfo = Utils.getLastActionInfo(redisKey);
+        logger.info(redisKey + "|" + lastActionInfo);
 
         Signal.TradeActionType lastAction = lastActionInfo.getAction();
         if (lastAction.equals(Signal.TradeActionType.BUY)) {
@@ -84,9 +86,9 @@ public class Sma implements Algorithm {
         double[] signalMargins = calculateSignalMargin(volatilityMultiplier, position, maxPosition);
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
-        // System.out.println(buySignalMargin + "|" + sellSignalMargin + "|" + position + "|" + volatilityMultiplier);
+
         double vwap = row.getDouble("vwap");
-        double sma = row.getDouble(benchmarkColumn);
+        double ema = row.getDouble(benchmarkColumnName);
 
         long buyIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastBuyDateTime != null) {
@@ -99,8 +101,8 @@ public class Sma implements Algorithm {
             sellIntervalSeconds = sellDuration.getSeconds();
         }
 
-        double longThreshold = sma * (1 - buySignalMargin);
-        double shortThreshold = sma * (1 + sellSignalMargin);
+        double longThreshold = ema * (1 - buySignalMargin);
+        double shortThreshold = ema * (1 + sellSignalMargin);
 
         Signal signal = null;
         if (ac.getSecType().equals("STK")) {

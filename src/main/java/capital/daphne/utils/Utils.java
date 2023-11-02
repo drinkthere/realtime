@@ -44,21 +44,19 @@ public class Utils {
     }
 
     public static String genKey(String symbol, String secType) {
-        return symbol + "." + secType;
+        return symbol + ":" + secType;
     }
 
     public static String[] parseKey(String key) {
-        return key.split("\\.");
+        return key.split(":");
     }
 
     public static DoubleColumn ewm(DoubleColumn inputCol, double alpha, String outputColumnName, boolean prefillSma, boolean adjust, int period, int minPeriods) {
 
         DoubleColumn result = DoubleColumn.create(outputColumnName, inputCol.size());
-        //initialized
         int startIndex = 1;
         if (prefillSma) {
             DoubleColumn sma = inputCol.rolling(period).mean();
-            //result.set(period - 1, sma.getDouble(period - 1));
             Double initialSma = sma.getDouble(period - 1);
             if (initialSma == null || initialSma.isNaN()) {
                 initialSma = 0.0d;
@@ -79,15 +77,12 @@ public class Utils {
                 result.set(i, ema);
             }
         } else {
-            //DoubleColumn alphaWeighted = DoubleColumn.create("alphaWeighted", inputCol.size());
             double alphaWeightedSum = 0;
-            //int span = period * 2 + 1;
             double alphaWeightedInputSum = 0;
 
             for (int i = 0; i < inputCol.size(); i++) {
                 double alphaWeightRet = Math.pow(1 - alpha, i);
                 alphaWeightedSum += alphaWeightRet;
-                //alphaWeighted.set(i, alphaWeightRet);
 
                 alphaWeightedInputSum = (alphaWeightedInputSum * (1 - alpha) + inputCol.getDouble(i));
 

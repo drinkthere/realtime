@@ -31,6 +31,7 @@ public class Main {
 
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
+            // 监听bar更新的消息，然后根据配置中的algorithm来进行判断和处理，如果有信号，就给trader模块发送信号
             jedis.subscribe(new JedisPubSub() {
                 @Override
                 public void onMessage(String channel, String message) {
@@ -39,7 +40,7 @@ public class Main {
                     String symbol = strings[0];
                     String secType = strings[1];
 
-                    // algorithms里面，涉及到这个标的的algorithm
+                    // 在algorithms里面，过滤出涉及到这个股票的algorithm
                     List<AppConfigManager.AppConfig.AlgorithmConfig> matchedAlgorithms = appConfig.getAlgorithms().stream()
                             .filter(algorithm -> symbol.equals(algorithm.getSymbol()) && secType.equals(algorithm.getSecType()))
                             .collect(Collectors.toList());
@@ -47,18 +48,22 @@ public class Main {
                         logger.error("no matched algorithms to process");
                         return;
                     }
+
+                    // 根据matchedAlgorithms，开启对应的线程来并行处理
                     int numThreads = matchedAlgorithms.size();
                     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
                             try {
+                                // 如果当前股票已经有信号在处理中，就跳过
                                 String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
                                 boolean inProgress = Utils.isInProgress(inProgressKey);
                                 if (inProgress) {
                                     logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
                                     return;
                                 }
+                                // 获取信号
                                 Signal tradeSignal = signalSvc.getTradeSignal(ac);
                                 if (tradeSignal != null && tradeSignal.isValid()) {
                                     // 记录信号

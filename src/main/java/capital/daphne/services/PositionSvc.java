@@ -14,7 +14,7 @@ public class PositionSvc {
         JedisPool jedisPool = JedisManager.getJedisPool();
         int position = 0;
         try (Jedis jedis = jedisPool.getResource()) {
-            String redisKey = accountId + "." + symbol + "." + secType + ".POSITION";
+            String redisKey = accountId + ":" + symbol + ":" + secType + ":POSITION";
             String positionStr = jedis.get(redisKey);
 
             if (positionStr != null) {

@@ -2,13 +2,7 @@ package capital.daphne.services;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.DbManager;
-import capital.daphne.algorithms.Algorithm;
-import capital.daphne.algorithms.Ema;
-import capital.daphne.algorithms.Sma;
-import capital.daphne.algorithms.close.CloseAlgorithm;
-import capital.daphne.algorithms.close.MACDSingal;
-import capital.daphne.algorithms.close.MACDZero;
-import capital.daphne.algorithms.close.TrailingStop;
+import capital.daphne.algorithms.AlgorithmProcessor;
 import capital.daphne.models.Signal;
 import capital.daphne.utils.Utils;
 import org.json.JSONObject;
@@ -20,6 +14,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.Constructor;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -37,50 +32,33 @@ public class SignalSvc {
 
     private final PositionSvc positionService;
 
-    private final Map<String, Algorithm> algoProcessorMap;
+    // 判断是否开仓的algoProcessorMap
+    private final Map<String, AlgorithmProcessor> openAlgoProcessorMap;
 
-    private final Map<String, CloseAlgorithm> closeAlgoProcessorMap;
+    // 判断是否平仓的algoProcessorMap
+    private final Map<String, AlgorithmProcessor> closeAlgoProcessorMap;
 
     public SignalSvc(List<AppConfigManager.AppConfig.AlgorithmConfig> algorithmConfigList) {
         barService = new BarSvc();
         positionService = new PositionSvc();
 
-        algoProcessorMap = new HashMap<>();
+        openAlgoProcessorMap = new HashMap<>();
         closeAlgoProcessorMap = new HashMap<>();
         for (AppConfigManager.AppConfig.AlgorithmConfig ac : algorithmConfigList) {
             String accountId = ac.getAccountId();
             String symbol = ac.getSymbol();
             String secType = ac.getSecType();
 
-            Algorithm algoProcessor;
-            switch (ac.getName()) {
-                case "EMA":
-                    algoProcessor = new Ema(ac);
-                    break;
-                case "SMA":
-                default:
-                    algoProcessor = new Sma(ac);
-                    break;
-            }
-            algoProcessorMap.put(accountId + "." + symbol + "." + secType, algoProcessor);
+            String algoKey = accountId + ":" + symbol + ":" + secType;
+            // 初始化openAlgoProcessor
+            AlgorithmProcessor openAlgoProcessor = loadAlgoProcessor("capital.daphne.algorithms", ac.getName(), ac);
+            openAlgoProcessorMap.put(algoKey, openAlgoProcessor);
 
+            // 初始化closeAlgoProcessor
             AppConfigManager.AppConfig.CloseAlgorithmConfig cac = ac.getCloseAlgo();
             if (cac != null) {
-                CloseAlgorithm closeAlgoProcess = null;
-                switch (cac.getMethod()) {
-                    case "MACD_SIGNAL":
-                        closeAlgoProcess = new MACDSingal(ac);
-                        break;
-                    case "MACD_ZERO":
-                        closeAlgoProcess = new MACDZero(ac);
-                        break;
-                    case "TRAILING_STOP_SIGNAL":
-                        closeAlgoProcess = new TrailingStop(ac);
-                        break;
-                    default:
-                        break;
-                }
-                closeAlgoProcessorMap.put(accountId + "." + symbol + "." + secType, closeAlgoProcess);
+                AlgorithmProcessor closeAlgoProcess = loadAlgoProcessor("capital.daphne.algorithms.close", cac.getMethod(), ac);
+                closeAlgoProcessorMap.put(algoKey, closeAlgoProcess);
             }
         }
     }
@@ -89,14 +67,14 @@ public class SignalSvc {
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
         String secType = ac.getSecType();
-        String key = Utils.genKey(symbol, secType);
+        String dataKey = Utils.genKey(symbol, secType);
+        String algoKey = ac.getAccountId() + ":" + dataKey;
 
-        // FUT全天交易，STK和CDF在正常交易区间交易
+        // todo 不同类型的标的，定义不同的MarketOpen时间
         if (!secType.equals("STK") || Utils.isMarketOpen()) {
-            // 获取5s bar信息
-            Table df = barService.getDataTable(key, ac.getNumStatsBars());
+            // 获取bar信息
+            Table df = barService.getDataTable(dataKey, ac.getNumStatsBars());
             if (df == null) {
-                logger.info(key + " dataframe is not ready");
                 return null;
             }
 
@@ -104,18 +82,19 @@ public class SignalSvc {
             int position = positionService.getPosition(accountId, symbol, secType);
             int maxPosition = ac.getMaxPortfolioPositions();
 
-            // 判断是否要下单
-            Algorithm algoProcessor = algoProcessorMap.get(ac.getAccountId() + "." + key);
-            Signal signal = algoProcessor.getSignal(df, position, maxPosition);
-
-            if (signal != null && signal.isValid()) {
-                return signal;
+            // 判断是否要开仓
+            AlgorithmProcessor openAlgoProcessor = openAlgoProcessorMap.get(algoKey);
+            if (openAlgoProcessor != null) {
+                Signal signal = openAlgoProcessor.getSignal(df, position, maxPosition);
+                // 同一个标的的开仓和平仓信号不会在一个bar中处理，优先处理开仓信号，所以这里判断信号有效就先返回了
+                if (signal != null && signal.isValid()) {
+                    return signal;
+                }
             }
 
-            // 如果没有open的信号，但是有close的配置，尝试获取信号
+            // 如果有平仓的配置，尝试获取平仓信号
             if (ac.getCloseAlgo() != null) {
-                CloseAlgorithm closeAlgoProcessor = closeAlgoProcessorMap.get(ac.getAccountId() + "." + key);
-
+                AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
                 if (closeAlgoProcessor != null) {
                     return closeAlgoProcessor.getSignal(df, position, maxPosition);
                 }
@@ -201,5 +180,26 @@ public class SignalSvc {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    private AlgorithmProcessor loadAlgoProcessor(String packageName, String className, AppConfigManager.AppConfig.AlgorithmConfig ac) {
+        AlgorithmProcessor algoProcessor = null;
+        try {
+            String pacakgeToClassName = packageName + "." + className;
+            // 使用反射加载类
+            Class<?> clazz = Class.forName(pacakgeToClassName);
+            Constructor<?> constructor = clazz.getConstructor(AppConfigManager.AppConfig.AlgorithmConfig.class);
+            algoProcessor = (AlgorithmProcessor) constructor.newInstance(ac);
+
+            logger.info("Successfully created an instance of: " + className);
+            logger.info("Instance: " + algoProcessor);
+            return algoProcessor;
+        } catch (ClassNotFoundException e) {
+            logger.error("Class not found: " + className);
+        } catch (Exception e) {
+            logger.error("Error creating instance for: " + className);
+            e.printStackTrace();
+        }
+        return algoProcessor;
     }
 }

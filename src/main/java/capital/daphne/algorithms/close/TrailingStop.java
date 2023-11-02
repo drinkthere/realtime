@@ -2,6 +2,7 @@ package capital.daphne.algorithms.close;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
+import capital.daphne.algorithms.AlgorithmProcessor;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
 import capital.daphne.models.WapMaxMin;
@@ -19,7 +20,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
-public class TrailingStop implements CloseAlgorithm {
+public class TrailingStop implements AlgorithmProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(TrailingStop.class);
     private final AppConfigManager.AppConfig.AlgorithmConfig ac;
@@ -44,7 +45,7 @@ public class TrailingStop implements CloseAlgorithm {
         // 通过redis获取orderList，如果不存在，直接返回无信号
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
-            String redisKey = accountId + "." + symbol + "." + secType + ".ORDER_LIST";
+            String redisKey = accountId + ":" + symbol + ":" + secType + ":ORDER_LIST";
             String storedOrderListJson = jedis.get(redisKey);
             logger.info("redis|" + redisKey + "|" + storedOrderListJson);
             if (storedOrderListJson == null) {

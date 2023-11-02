@@ -61,8 +61,8 @@ public class OrderTest {
 
     @Test
     public void splitString() {
-        String actionInfo = "SELL|2023-10-25T08:20:02.885152";
-        String[] split = actionInfo.split("\\|");
+        String actionInfo = "aaa:bbb:ccc:ddd";
+        String[] split = actionInfo.split(":");
         String action = split[0];
         String datetime = split[1];
         System.out.println(action + "-" + datetime);
