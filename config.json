@@ -20,56 +20,11 @@
   },
   "contracts": [
     {
-      "symbol": "AAPL",
-      "secType": "STK",
+      "symbol": "EUR",
+      "secType": "CASH",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "",
-      "currency": "USD"
-    },
-    {
-      "symbol": "MSFT",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "",
-      "currency": "USD"
-    },
-    {
-      "symbol": "GOOGL",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "",
-      "currency": "USD"
-    },
-    {
-      "symbol": "AMZN",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "",
-      "currency": "USD"
-    },
-    {
-      "symbol": "IWM",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
-      "primaryExchange": "",
-      "currency": "USD"
-    },
-    {
-      "symbol": "QQQ",
-      "secType": "STK",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "SMART",
+      "exchange": "IDEALPRO",
       "primaryExchange": "",
       "currency": "USD"
     },
@@ -83,22 +38,22 @@
       "currency": "USD"
     },
     {
-      "symbol": "AUD",
-      "secType": "CASH",
-      "lastTradeDateOrContractMonth": "",
-      "multiplier": "",
-      "exchange": "IDEALPRO",
+      "symbol": "MES",
+      "secType": "FUT",
+      "lastTradeDateOrContractMonth": "20231215",
+      "multiplier": "5",
+      "exchange": "CME",
       "primaryExchange": "",
       "currency": "USD"
     },
     {
-      "symbol": "USD",
+      "symbol": "QQQ",
       "secType": "CFD",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
       "exchange": "SMART",
       "primaryExchange": "",
-      "currency": "JPY"
+      "currency": "USD"
     }
   ],
   "algorithms": [
@@ -107,7 +62,6 @@
       "accountId": "DU5816868",
       "symbol": "EUR",
       "secType": "CASH",
-      "portfolioRequiredToClose": false,
       "maxPortfolioPositions": 188000,
       "positionSignalMarginOffset": 0,
       "orderSize": 188000,
@@ -117,13 +71,15 @@
       "volatilityA": 0,
       "volatilityB": 150,
       "volatilityC": 0,
-      "hardLimit": 1,
-      "hardLimitClosePositionMethod": "STOP",
       "closeAlgo": {
         "method": "TrailingStop",
         "minDurationBeforeClose": 15,
         "maxDurationToClose": 9999999,
         "trailingStopThreshold": 0.00015
+      },
+      "closePortfolio": {
+        "method": "Portfolio",
+        "secondsBeforeMarketClose": 600
       }
     }
   ]

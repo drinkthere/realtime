@@ -6,6 +6,7 @@ import capital.daphne.algorithms.AlgorithmProcessor;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
 import capital.daphne.models.WapMaxMin;
+import capital.daphne.utils.Utils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -18,7 +19,6 @@ import tech.tablesaw.api.Table;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 
 public class TrailingStop implements AlgorithmProcessor {
 
@@ -45,28 +45,19 @@ public class TrailingStop implements AlgorithmProcessor {
         // 通过redis获取orderList，如果不存在，直接返回无信号
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
-            String redisKey = accountId + ":" + symbol + ":" + secType + ":ORDER_LIST";
-            String storedOrderListJson = jedis.get(redisKey);
-            logger.info("redis|" + redisKey + "|" + storedOrderListJson);
-            if (storedOrderListJson == null) {
+            List<OrderInfo> orderList = Utils.getOrderList(jedis, accountId, symbol, secType);
+            if (orderList == null) {
                 return null;
             }
 
-            ObjectMapper objectMapper = new ObjectMapper();
-            List<OrderInfo> orderList = objectMapper.readValue(storedOrderListJson, new TypeReference<>() {
-            });
-            if (orderList == null && orderList.size() == 0) {
-                return null;
-            }
-
-            String maxMinKey = String.format("%s.%s:MAX_MIN_WAP", symbol, secType);
+            String maxMinKey = String.format("%s:%s:MAX_MIN_WAP", symbol, secType);
             String storedWapMaxMinJson = jedis.get(maxMinKey);
             logger.info("redis|" + maxMinKey + "|" + storedWapMaxMinJson);
             if (storedWapMaxMinJson == null) {
                 return null;
             }
 
-            objectMapper = new ObjectMapper();
+            ObjectMapper objectMapper = new ObjectMapper();
             logger.info("storedWapMaxMinJson:" + storedWapMaxMinJson);
             WapMaxMin wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
             });
@@ -95,15 +86,7 @@ public class TrailingStop implements AlgorithmProcessor {
                         && wapMaxMin.getMaxPriceSinceLastOrder() > 0 && row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxPriceSinceLastOrder()) ||
                         (lastOrder.getQuantity() < 0 && position < 0)
                                 && wapMaxMin.getMinPriceSinceLastOrder() > 0 && row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinPriceSinceLastOrder()) {
-                    signal.setValid(true);
-                    signal.setAccountId(accountId);
-                    signal.setUuid(UUID.randomUUID().toString());
-                    signal.setSymbol(symbol);
-                    signal.setSecType(secType);
-                    signal.setWap(row.getDouble("vwap"));
-                    signal.setQuantity(-lastOrder.getQuantity());
-                    signal.setOrderType(Signal.OrderType.CLOSE);
-                    signal.setBenchmarkColumn("trailingStop");
+                    signal = Utils.fulfillSignal(accountId, symbol, secType, row.getDouble("vwap"), -lastOrder.getQuantity(), Signal.OrderType.CLOSE, "trailingStop");
                 }
             }
             return signal;

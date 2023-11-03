@@ -89,7 +89,6 @@ public class AppConfigManager {
             private String accountId;
             private String symbol;
             private String secType;
-            private boolean portfolioRequiredToClose;
             private int maxPortfolioPositions;
             private float positionSignalMarginOffset;
             private int orderSize;
@@ -99,10 +98,10 @@ public class AppConfigManager {
             private int volatilityA;
             private int volatilityB;
             private int volatilityC;
-            private float hardLimit;
-            private String hardLimitClosePositionMethod;
-            private int minDurationWhenReset;
+            
             private CloseAlgorithmConfig closeAlgo;
+            private ClosePortfolio closePortfolio;
+            private hardLimit hardLimit;
         }
 
         @Data
@@ -118,6 +117,20 @@ public class AppConfigManager {
 
             // trailing stop related
             private double trailingStopThreshold;
+        }
+
+        @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class ClosePortfolio {
+            private String method;
+            private int secondsBeforeMarketClose;
+        }
+
+        @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class hardLimit {
+            private String method;
+            private int minDurationWhenReset;
         }
     }
 

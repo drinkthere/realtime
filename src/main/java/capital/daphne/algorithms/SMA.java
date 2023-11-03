@@ -12,8 +12,6 @@ import tech.tablesaw.api.Table;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.UUID;
 
 public class SMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SMA.class);
@@ -48,7 +46,7 @@ public class SMA implements AlgorithmProcessor {
     private Table preProcess(Table df) {
         // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
         int numStatsBars = ac.getNumStatsBars();
-        benchmarkColumnName = "sma" + numStatsBars;
+        benchmarkColumnName = ac.getName() + numStatsBars;
         DoubleColumn vwap = df.doubleColumn("prev_vwap");
         DoubleColumn sma = vwap.rolling(numStatsBars).mean();
         sma.setName(benchmarkColumnName);
@@ -79,16 +77,15 @@ public class SMA implements AlgorithmProcessor {
             lastSellDateTime = lastActionInfo.getDateTime();
         }
 
-        LocalDateTime datetime = Utils.loadUsDateTime(row.getString("date_us"));
-        LocalTime time = datetime.toLocalTime();
+        LocalDateTime datetime = Utils.genUsDateTime(row.getString("date_us"), "yyyy-MM-dd HH:mm:ssXXX");
 
-        double[] signalMargins = calculateSignalMargin(volatilityMultiplier, position, maxPosition);
+        double[] signalMargins = Utils.calculateSignalMargin(ac.getSecType(), ac.getSignalMargin(), ac.getPositionSignalMarginOffset(), volatilityMultiplier, position);
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
-        // System.out.println(buySignalMargin + "|" + sellSignalMargin + "|" + position + "|" + volatilityMultiplier);
+
         double vwap = row.getDouble("vwap");
         double sma = row.getDouble(benchmarkColumnName);
-        //vwap -= 0.001;
+        vwap -= 0.0005;
         long buyIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastBuyDateTime != null) {
             Duration buyDuration = Duration.between(lastBuyDateTime, datetime);
@@ -104,93 +101,18 @@ public class SMA implements AlgorithmProcessor {
         double shortThreshold = sma * (1 + sellSignalMargin);
 
         Signal signal = null;
-        if (ac.getSecType().equals("STK")) {
-            LocalTime portfolioCloseTime = LocalTime.of(15, 50, 0);
-            LocalTime marketOpenTime = LocalTime.of(9, 30, 0);
-            LocalTime marketCloseTime = LocalTime.of(16, 0, 0);
-            LocalTime tradeEndTime = !ac.isPortfolioRequiredToClose() ? marketCloseTime : portfolioCloseTime;
 
-            if ((time.isAfter(marketOpenTime) && time.isBefore(tradeEndTime)) || time.equals(marketOpenTime) || time.equals(tradeEndTime)) {
-                logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
-                        ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));
-                if (vwap <= longThreshold
-                        && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
-                        && (position < maxPosition * ac.getHardLimit()) && resetDatetime == null) {
-                    signal = fulfillSignal(vwap, ac.getOrderSize(), Signal.OrderType.OPEN);
-                } else if (vwap >= shortThreshold
-                        && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
-                        && (position > -maxPosition * ac.getHardLimit()) && resetDatetime == null) {
-                    signal = fulfillSignal(vwap, -ac.getOrderSize(), Signal.OrderType.OPEN);
-                } else if (Math.abs(position) >= maxPosition * ac.getHardLimit() && ac.getHardLimitClosePositionMethod().equals("RESET") && lastAction != null) {
-                    if (resetDatetime == null) {
-                        resetDatetime = datetime.plusSeconds(ac.getMinDurationWhenReset());
-                        if (resetDatetime.toLocalTime().isAfter(tradeEndTime)) {
-                            long durationSeconds = Duration.between(tradeEndTime, resetDatetime.toLocalTime()).getSeconds();
-                            resetDatetime = resetDatetime.minusSeconds(Math.abs(durationSeconds));
-                        }
-                    }
-                    if (datetime.isAfter(resetDatetime) || datetime.equals(resetDatetime)) {
-                        signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                        resetDatetime = null;
-                    }
-                }
-            } else if ((time.isAfter(portfolioCloseTime) && time.isBefore(marketCloseTime) || time.equals(portfolioCloseTime) || time.equals(marketCloseTime))
-                    && ac.isPortfolioRequiredToClose()) {
-                signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                resetDatetime = null;
-            } else {
-                Utils.clearLastActionInfo(redisKey);
-                resetDatetime = null;
-            }
-        } else {
-            // FUT/CASH/CFD交易不受时间限制
-            logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d",
-                    ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position));
-
-            if (vwap <= longThreshold
-                    && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
-                    && ((position + ac.getOrderSize()) <= maxPosition * ac.getHardLimit()) && resetDatetime == null) {
-                signal = fulfillSignal(vwap, ac.getOrderSize(), Signal.OrderType.OPEN);
-            } else if (vwap >= shortThreshold
-                    && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
-                    && ((position - ac.getOrderSize()) >= -maxPosition * ac.getHardLimit()) && resetDatetime == null) {
-                signal = fulfillSignal(vwap, -ac.getOrderSize(), Signal.OrderType.OPEN);
-            } else if (Math.abs(position) >= maxPosition * ac.getHardLimit() && ac.getHardLimitClosePositionMethod().equals("RESET") && lastAction != null) {
-                if (resetDatetime == null) {
-                    resetDatetime = datetime.plusSeconds(ac.getMinDurationWhenReset());
-                }
-                if (datetime.isAfter(resetDatetime) || datetime.equals(resetDatetime)) {
-                    signal = fulfillSignal(vwap, -position, Signal.OrderType.CLOSE);
-                    resetDatetime = null;
-                }
-            }
+        logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
+                ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));
+        if (vwap <= longThreshold
+                && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
+                && (position < maxPosition) && resetDatetime == null) {
+            signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
+        } else if (vwap >= shortThreshold
+                && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
+                && (position > -maxPosition) && resetDatetime == null) {
+            signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
         }
-        return signal;
-    }
-
-    private double[] calculateSignalMargin(double volatilityMultiplier, int position, int maxPosition) {
-        float signalMargin = ac.getSignalMargin();
-        float positionSignalMarginOffset = ac.getPositionSignalMarginOffset();
-        if (!ac.getSecType().equals("FUT")) {
-            position = position / 100;
-        }
-
-        double buySignalMargin = (signalMargin + positionSignalMarginOffset * position) * volatilityMultiplier;
-        double sellSignalMargin = (signalMargin - positionSignalMarginOffset * position) * volatilityMultiplier;
-        return new double[]{buySignalMargin, sellSignalMargin};
-    }
-
-    private Signal fulfillSignal(double vwap, int position, Signal.OrderType orderType) {
-        Signal signal = new Signal();
-        signal.setValid(true);
-        signal.setAccountId(ac.getAccountId());
-        signal.setUuid(UUID.randomUUID().toString());
-        signal.setSymbol(ac.getSymbol());
-        signal.setSecType(ac.getSecType());
-        signal.setWap(vwap);
-        signal.setQuantity(position);
-        signal.setOrderType(orderType);
-        signal.setBenchmarkColumn(benchmarkColumnName);
         return signal;
     }
 }

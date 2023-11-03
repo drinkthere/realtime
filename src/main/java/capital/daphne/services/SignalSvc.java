@@ -38,12 +38,19 @@ public class SignalSvc {
     // 判断是否平仓的algoProcessorMap
     private final Map<String, AlgorithmProcessor> closeAlgoProcessorMap;
 
+    // 判断是否在收盘前平仓的portfolioProcessMap
+    private final Map<String, AlgorithmProcessor> closePortfolioProcessorMap;
+
+    private final Map<String, AlgorithmProcessor> closeHardLimitProcessorMap;
+
     public SignalSvc(List<AppConfigManager.AppConfig.AlgorithmConfig> algorithmConfigList) {
         barService = new BarSvc();
         positionService = new PositionSvc();
 
         openAlgoProcessorMap = new HashMap<>();
         closeAlgoProcessorMap = new HashMap<>();
+        closePortfolioProcessorMap = new HashMap<>();
+        closeHardLimitProcessorMap = new HashMap<>();
         for (AppConfigManager.AppConfig.AlgorithmConfig ac : algorithmConfigList) {
             String accountId = ac.getAccountId();
             String symbol = ac.getSymbol();
@@ -57,8 +64,21 @@ public class SignalSvc {
             // 初始化closeAlgoProcessor
             AppConfigManager.AppConfig.CloseAlgorithmConfig cac = ac.getCloseAlgo();
             if (cac != null) {
-                AlgorithmProcessor closeAlgoProcess = loadAlgoProcessor("capital.daphne.algorithms.close", cac.getMethod(), ac);
-                closeAlgoProcessorMap.put(algoKey, closeAlgoProcess);
+                AlgorithmProcessor closeAlgoProcessor = loadAlgoProcessor("capital.daphne.algorithms.close", cac.getMethod(), ac);
+                closeAlgoProcessorMap.put(algoKey, closeAlgoProcessor);
+            }
+
+            // 初始化closePortfolioProcessor
+            AppConfigManager.AppConfig.ClosePortfolio cp = ac.getClosePortfolio();
+            if (cp != null) {
+                AlgorithmProcessor closeAlgoProcessor = loadAlgoProcessor("capital.daphne.algorithms.close", cp.getMethod(), ac);
+                closePortfolioProcessorMap.put(algoKey, closeAlgoProcessor);
+            }
+
+            AppConfigManager.AppConfig.hardLimit hl = ac.getHardLimit();
+            if (hl != null && hl.getMethod().equals("Reset")) {
+                AlgorithmProcessor closeHardLimitProcessor = loadAlgoProcessor("capital.daphne.algorithms.close", hl.getMethod(), ac);
+                closeHardLimitProcessorMap.put(algoKey, closeHardLimitProcessor);
             }
         }
     }
@@ -70,8 +90,7 @@ public class SignalSvc {
         String dataKey = Utils.genKey(symbol, secType);
         String algoKey = ac.getAccountId() + ":" + dataKey;
 
-        // todo 不同类型的标的，定义不同的MarketOpen时间
-        if (!secType.equals("STK") || Utils.isMarketOpen()) {
+        if (Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow())) {
             // 获取bar信息
             Table df = barService.getDataTable(dataKey, ac.getNumStatsBars());
             if (df == null) {
@@ -82,7 +101,24 @@ public class SignalSvc {
             int position = positionService.getPosition(accountId, symbol, secType);
             int maxPosition = ac.getMaxPortfolioPositions();
 
-            // 判断是否要开仓
+            // 判断是否配置了收盘前平仓的逻辑(e.g. 盘前10分钟平仓)
+            AppConfigManager.AppConfig.ClosePortfolio closePortfolio = ac.getClosePortfolio();
+            if (closePortfolio != null) {
+                // 如果配置了，并且当前处于收盘前的平仓阶段, 无论有没有信号，都不会往下进行了
+                if (Utils.isCloseToClosing(symbol, secType, Utils.genUsDateTimeNow(), closePortfolio.getSecondsBeforeMarketClose())) {
+                    logger.info(String.format("symbol=%s, secType=%s, algoKey=%s is closing to close",
+                            symbol, secType, algoKey));
+                    AlgorithmProcessor closePortfolioProcessor = closePortfolioProcessorMap.get(algoKey);
+                    if (closePortfolioProcessor == null) {
+                        logger.error(String.format("symbol=%s, secType=%s, algoKey=%s can't not find closePortfolioProcessor",
+                                symbol, secType, algoKey));
+                        return null;
+                    }
+                    return closePortfolioProcessor.getSignal(df, position, maxPosition);
+                }
+            }
+
+            // 判断是否要开仓, (open, e.g. SMA)
             AlgorithmProcessor openAlgoProcessor = openAlgoProcessorMap.get(algoKey);
             if (openAlgoProcessor != null) {
                 Signal signal = openAlgoProcessor.getSignal(df, position, maxPosition);
@@ -92,18 +128,27 @@ public class SignalSvc {
                 }
             }
 
-            // 如果有平仓的配置，尝试获取平仓信号
-            if (ac.getCloseAlgo() != null) {
-                AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
-                if (closeAlgoProcessor != null) {
-                    return closeAlgoProcessor.getSignal(df, position, maxPosition);
+            // 如果有平仓的配置，尝试获取平仓信号 (close, e.g. TrailingStop)
+            AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
+            if (closeAlgoProcessor != null) {
+                Signal signal = closeAlgoProcessor.getSignal(df, position, maxPosition);
+                if (signal != null && signal.isValid()) {
+                    return signal;
                 }
             }
-            return null;
+
+
+            // 如果有满仓减仓配置，尝试获取减仓信号(e.g. 当position达到上线，并且配置了reset参数）
+            AlgorithmProcessor closeHardLimitProcessor = closeHardLimitProcessorMap.get(algoKey);
+            if (closeHardLimitProcessor != null) {
+                return closeHardLimitProcessor.getSignal(df, position, maxPosition);
+            }
+
         } else {
-            logger.info("market is not open");
-            return null;
+            logger.info(String.format("symbol=%s, secType=%s, market is not open", symbol, secType));
+            // cleaDirtyData(ac);
         }
+        return null;
     }
 
     public void saveSignal(Signal sig) {
@@ -201,5 +246,12 @@ public class SignalSvc {
             e.printStackTrace();
         }
         return algoProcessor;
+    }
+
+    private void cleaDirtyData(AppConfigManager.AppConfig.AlgorithmConfig ac) {
+        // 清理垃圾数据， 如*LAST_ACTION， *ORDER_LIST等, *POSITION
+        String benchmarkColumnName = ac.getName() + ac.getNumStatsBars();
+        String redisKey = String.format("%s:%s:%s:%s:LAST_ACTION", ac.getAccountId(), ac.getSymbol(), ac.getSecType(), benchmarkColumnName);
+        Utils.clearLastActionInfo(redisKey);
     }
 }
