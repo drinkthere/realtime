@@ -5,7 +5,7 @@ import capital.daphne.JedisManager;
 import capital.daphne.algorithms.AlgorithmProcessor;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
-import capital.daphne.models.WapMaxMin;
+import capital.daphne.models.WapCache;
 import capital.daphne.utils.Utils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,10 +58,10 @@ public class TrailingStop implements AlgorithmProcessor {
             }
 
             ObjectMapper objectMapper = new ObjectMapper();
-            logger.info("storedWapMaxMinJson:" + storedWapMaxMinJson);
-            WapMaxMin wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
+            // logger.info("storedWapMaxMinJson:" + storedWapMaxMinJson);
+            WapCache wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
             });
-            if (wapMaxMin == null || wapMaxMin.getMaxPriceSinceLastOrder() == Double.MIN_VALUE || wapMaxMin.getMinPriceSinceLastOrder() == Double.MAX_VALUE) {
+            if (wapMaxMin == null || wapMaxMin.getMinWap() == Double.MIN_VALUE || wapMaxMin.getMinWap() == Double.MAX_VALUE) {
                 return null;
             }
 
@@ -79,13 +79,13 @@ public class TrailingStop implements AlgorithmProcessor {
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
                 logger.info(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%b|sbm=%b",
                         accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(), position,
-                        wapMaxMin.getMaxPriceSinceLastOrder(), wapMaxMin.getMinPriceSinceLastOrder(),
-                        row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxPriceSinceLastOrder(),
-                        row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinPriceSinceLastOrder()));
+                        wapMaxMin.getMaxWap(), wapMaxMin.getMinWap(),
+                        row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxWap(),
+                        row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinWap()));
                 if ((lastOrder.getQuantity() > 0 && position > 0
-                        && wapMaxMin.getMaxPriceSinceLastOrder() > 0 && row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxPriceSinceLastOrder()) ||
+                        && wapMaxMin.getMaxWap() > 0 && row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxWap()) ||
                         (lastOrder.getQuantity() < 0 && position < 0)
-                                && wapMaxMin.getMinPriceSinceLastOrder() > 0 && row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinPriceSinceLastOrder()) {
+                                && wapMaxMin.getMinWap() > 0 && row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinWap()) {
                     signal = Utils.fulfillSignal(accountId, symbol, secType, row.getDouble("vwap"), -lastOrder.getQuantity(), Signal.OrderType.CLOSE, "trailingStop");
                 }
             }

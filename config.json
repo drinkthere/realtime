@@ -29,47 +29,38 @@
       "currency": "USD"
     },
     {
-      "symbol": "SPY",
-      "secType": "STK",
+      "symbol": "AUD",
+      "secType": "CASH",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
-      "exchange": "SMART",
+      "exchange": "IDEALPRO",
       "primaryExchange": "",
       "currency": "USD"
     },
     {
-      "symbol": "MES",
-      "secType": "FUT",
-      "lastTradeDateOrContractMonth": "20231215",
-      "multiplier": "5",
-      "exchange": "CME",
-      "primaryExchange": "",
-      "currency": "USD"
-    },
-    {
-      "symbol": "QQQ",
-      "secType": "CFD",
+      "symbol": "USD",
+      "secType": "CASH",
       "lastTradeDateOrContractMonth": "",
       "multiplier": "",
-      "exchange": "SMART",
+      "exchange": "IDEALPRO",
       "primaryExchange": "",
-      "currency": "USD"
+      "currency": "JPY"
     }
   ],
   "algorithms": [
     {
-      "name": "SMA",
-      "accountId": "DU5816868",
-      "symbol": "EUR",
-      "secType": "CASH",
-      "maxPortfolioPositions": 188000,
+      "name": "EMA",
+      "accountId": "DU6380369",
+      "symbol": "SPY",
+      "secType": "STK",
+      "maxPortfolioPositions": 100,
       "positionSignalMarginOffset": 0,
-      "orderSize": 188000,
+      "orderSize": 100,
       "minIntervalBetweenSignal": 72,
-      "signalMargin": 0.0002,
+      "signalMargin": 0.0003,
       "numStatsBars": 18,
       "volatilityA": 0,
-      "volatilityB": 150,
+      "volatilityB": 160,
       "volatilityC": 0,
       "closeAlgo": {
         "method": "TrailingStop",

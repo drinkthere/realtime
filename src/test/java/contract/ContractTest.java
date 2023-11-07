@@ -28,7 +28,7 @@ public class ContractTest {
         System.out.println(!marketOpen);
 
         // STK 盘中
-        dateTime = Utils.genUsDateTime("2023-11-01 09:30", "yyyy-MM-dd HH:mm");
+        dateTime = Utils.genUsDateTime("2023-11-06 09:33", "yyyy-MM-dd HH:mm");
         marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
         System.out.println(marketOpen);
 

@@ -2,7 +2,7 @@ package order;
 
 import capital.daphne.AppConfigManager;
 import capital.daphne.models.Signal;
-import capital.daphne.models.WapMaxMin;
+import capital.daphne.models.WapCache;
 import capital.daphne.services.SignalSvc;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
@@ -98,13 +99,28 @@ public class OrderTest {
         try {
             String storedWapMaxMinJson = "{\"maxPriceSinceLastOrder\":414.7813292065279,\"minPriceSinceLastOrder\":414.5507109157195}";
             ObjectMapper objectMapper = new ObjectMapper();
-            WapMaxMin wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
+            WapCache wapMaxMin = objectMapper.readValue(storedWapMaxMinJson, new TypeReference<>() {
             });
-            boolean b = wapMaxMin.getMaxPriceSinceLastOrder() == Double.MIN_VALUE || wapMaxMin.getMinPriceSinceLastOrder() == Double.MAX_VALUE;
+            boolean b = wapMaxMin.getMaxWap() == Double.MIN_VALUE || wapMaxMin.getMinWap() == Double.MAX_VALUE;
             System.out.println(String.format("xx %b", b));
         } catch (JsonMappingException e) {
             throw new RuntimeException(e);
         } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    @Test
+    public void formatUsDate() {
+        try {
+            String timeStr = "20231103 09:21:55 US/Eastern";
+            ZoneId easternTimeZone = ZoneId.of("America/New_York");
+
+            ZonedDateTime zonedDateTime = ZonedDateTime.parse(timeStr, java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd HH:mm:ss VV").withZone(easternTimeZone));
+
+            System.out.println(zonedDateTime.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX")));
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 

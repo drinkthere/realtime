@@ -85,7 +85,7 @@ public class SMA implements AlgorithmProcessor {
 
         double vwap = row.getDouble("vwap");
         double sma = row.getDouble(benchmarkColumnName);
-        vwap -= 0.0005;
+        // vwap -= 0.0005;
         long buyIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastBuyDateTime != null) {
             Duration buyDuration = Duration.between(lastBuyDateTime, datetime);

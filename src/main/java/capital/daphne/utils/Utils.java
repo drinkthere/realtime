@@ -32,12 +32,15 @@ public class Utils {
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
             String tradingHoursStr = jedis.get(redisKey);
+            logger.debug("tradingHoursStr:" + tradingHoursStr);
             if (tradingHoursStr != null) {
                 TradingHours[] tradingHours = parseTradingHours(tradingHoursStr, secType);
                 for (TradingHours tradingHour : tradingHours) {
                     if (tradingHour.isClosed()) {
                         continue;
                     }
+
+                    logger.debug("tradingHour is Closed:" + (currentTime.isAfter(tradingHour.getStartTime()) || currentTime.isEqual(tradingHour.getStartTime())));
                     if ((currentTime.isAfter(tradingHour.getStartTime()) || currentTime.isEqual(tradingHour.getStartTime())) &&
                             currentTime.isBefore(tradingHour.getEndTime())) {
                         return true;
