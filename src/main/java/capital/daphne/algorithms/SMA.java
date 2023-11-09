@@ -62,8 +62,8 @@ public class SMA implements AlgorithmProcessor {
 
     private Signal processToGetSignal(Row row, int position, int maxPosition) {
         double volatility = row.getDouble("volatility");
-        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
 
+        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
         LocalDateTime lastBuyDateTime = null;
         LocalDateTime lastSellDateTime = null;
 
@@ -85,7 +85,7 @@ public class SMA implements AlgorithmProcessor {
 
         double vwap = row.getDouble("vwap");
         double sma = row.getDouble(benchmarkColumnName);
-        // vwap -= 0.0005;
+        
         long buyIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastBuyDateTime != null) {
             Duration buyDuration = Duration.between(lastBuyDateTime, datetime);

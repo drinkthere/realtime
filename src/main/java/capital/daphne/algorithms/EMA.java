@@ -23,6 +23,7 @@ public class EMA implements AlgorithmProcessor {
 
     private String benchmarkColumnName;
 
+
     public EMA(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
         ac = algorithmConfig;
         resetDatetime = null;
@@ -63,8 +64,8 @@ public class EMA implements AlgorithmProcessor {
 
     private Signal processToGetSignal(Row row, int position, int maxPosition) {
         double volatility = row.getDouble("volatility");
-        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
 
+        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
         LocalDateTime lastSellDateTime = null;
         LocalDateTime lastBuyDateTime = null;
 
@@ -89,7 +90,6 @@ public class EMA implements AlgorithmProcessor {
 
         double vwap = row.getDouble("vwap");
         double ema = row.getDouble(benchmarkColumnName);
-
         long sellIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastSellDateTime != null) {
             Duration sellDuration = Duration.between(lastSellDateTime, datetime);

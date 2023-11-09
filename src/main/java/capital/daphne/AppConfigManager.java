@@ -98,7 +98,7 @@ public class AppConfigManager {
             private int volatilityA;
             private int volatilityB;
             private int volatilityC;
-            
+
             private CloseAlgorithmConfig closeAlgo;
             private ClosePortfolio closePortfolio;
             private hardLimit hardLimit;
