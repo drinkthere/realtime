@@ -56,16 +56,10 @@ public class EMA implements AlgorithmProcessor {
         return df;
     }
 
-    private double calToVolatilityMultiplier(double volatility) {
-        return 1 + ac.getVolatilityA() +
-                ac.getVolatilityB() * volatility +
-                ac.getVolatilityC() * volatility * volatility;
-    }
-
     private Signal processToGetSignal(Row row, int position, int maxPosition) {
         double volatility = row.getDouble("volatility");
 
-        double volatilityMultiplier = calToVolatilityMultiplier(volatility);
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac, volatility);
         LocalDateTime lastSellDateTime = null;
         LocalDateTime lastBuyDateTime = null;
 

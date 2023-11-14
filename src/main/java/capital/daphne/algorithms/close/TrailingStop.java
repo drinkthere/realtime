@@ -37,6 +37,8 @@ public class TrailingStop implements AlgorithmProcessor {
 
         AppConfigManager.AppConfig.CloseAlgorithmConfig cac = ac.getCloseAlgo();
         Row row = df.row(df.rowCount() - 1);
+        double volatility = row.getDouble("volatility");
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac, volatility);
 
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
@@ -75,6 +77,7 @@ public class TrailingStop implements AlgorithmProcessor {
             LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
             LocalDateTime now = LocalDateTime.now();
 
+            double threshold = volatilityMultiplier * cac.getTrailingStopThreshold();
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
                 logger.info(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%b|sbm=%b",
@@ -83,9 +86,9 @@ public class TrailingStop implements AlgorithmProcessor {
                         row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxWap(),
                         row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinWap()));
                 if ((lastOrder.getQuantity() > 0 && position > 0
-                        && wapMaxMin.getMaxWap() > 0 && row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxWap()) ||
+                        && wapMaxMin.getMaxWap() > 0 && row.getDouble("vwap") <= (1 - threshold) * wapMaxMin.getMaxWap()) ||
                         (lastOrder.getQuantity() < 0 && position < 0)
-                                && wapMaxMin.getMinWap() > 0 && row.getDouble("vwap") >= (1 + cac.getTrailingStopThreshold()) * wapMaxMin.getMinWap()) {
+                                && wapMaxMin.getMinWap() > 0 && row.getDouble("vwap") >= (1 + threshold) * wapMaxMin.getMinWap()) {
                     signal = Utils.fulfillSignal(accountId, symbol, secType, row.getDouble("vwap"), -lastOrder.getQuantity(), Signal.OrderType.CLOSE, "trailingStop");
                 }
             }

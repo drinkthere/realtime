@@ -1,5 +1,6 @@
 package capital.daphne.utils;
 
+import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
 import capital.daphne.models.ActionInfo;
 import capital.daphne.models.OrderInfo;
@@ -312,5 +313,11 @@ public class Utils {
             e.printStackTrace();
             return null;
         }
+    }
+
+    public static double calToVolatilityMultiplier(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
+        return 1 + ac.getVolatilityA() +
+                ac.getVolatilityB() * volatility +
+                ac.getVolatilityC() * volatility * volatility;
     }
 }
