@@ -230,9 +230,9 @@ public class SignalSvc {
     private AlgorithmProcessor loadAlgoProcessor(String packageName, String className, AppConfigManager.AppConfig.AlgorithmConfig ac) {
         AlgorithmProcessor algoProcessor = null;
         try {
-            String pacakgeToClassName = packageName + "." + className;
+            String packageToClassName = packageName + "." + className;
             // 使用反射加载类
-            Class<?> clazz = Class.forName(pacakgeToClassName);
+            Class<?> clazz = Class.forName(packageToClassName);
             Constructor<?> constructor = clazz.getConstructor(AppConfigManager.AppConfig.AlgorithmConfig.class);
             algoProcessor = (AlgorithmProcessor) constructor.newInstance(ac);
 

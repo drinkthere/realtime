@@ -5,14 +5,11 @@ import capital.daphne.JedisManager;
 import capital.daphne.algorithms.AlgorithmProcessor;
 import capital.daphne.algorithms.SMA;
 import capital.daphne.algorithms.close.MACDSingal;
+import capital.daphne.models.BarInfo;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Data;
-import org.apache.commons.csv.CSVFormat;
-import org.apache.commons.csv.CSVParser;
-import org.apache.commons.csv.CSVRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -22,8 +19,10 @@ import tech.tablesaw.api.DoubleColumn;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
+import testmodels.Bar;
+import testmodels.Sig;
+import testutils.TestUtils;
 
-import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,11 +57,11 @@ public class SMATest {
         minWapMap = new HashMap<>();
 
         // 读取csv文件，加载List<Bar>
-        List<Bar> bars = loadCsv(currentDirectory + "/src/test/java/sma/spy_2023-09-27--2023-09-29.csv");
+        List<Bar> bars = TestUtils.loadCsv(currentDirectory + "/src/test/java/sma/spy_2023-09-27--2023-09-29.csv");
 
         // 生成我们需要的barList
         List<BarInfo> barList = new ArrayList<>();
-        int maxBarListSize = 60;
+        int maxBarListSize = 1200;
 
         int position = 0;
         int maxPosition = ac.getMaxPortfolioPositions();
@@ -123,30 +122,6 @@ public class SMATest {
             System.out.println(sig);
         }
         System.out.println("Order num:" + result.size());
-    }
-
-    private List<Bar> loadCsv(String csvFilePath) {
-        List<Bar> bars = new ArrayList<>();
-
-        try (FileReader fileReader = new FileReader(csvFilePath);
-             CSVParser csvParser = new CSVParser(fileReader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
-
-            for (CSVRecord csvRecord : csvParser) {
-                Bar bar = new Bar();
-                bar.setDate(csvRecord.get("date"));
-                bar.setOpen(Double.parseDouble(csvRecord.get("open")));
-                bar.setHigh(Double.parseDouble(csvRecord.get("high")));
-                bar.setLow(Double.parseDouble(csvRecord.get("low")));
-                bar.setClose(Double.parseDouble(csvRecord.get("close")));
-                bar.setVolume(Double.parseDouble(csvRecord.get("volume")));
-                bar.setVwap(Double.parseDouble(csvRecord.get("average")));
-                bar.setBarCount(Integer.parseInt(csvRecord.get("barCount")));
-                bars.add(bar);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return bars;
     }
 
     private BarInfo processBar(Bar bar) {
@@ -307,30 +282,4 @@ public class SMATest {
             logger.error("update position in redis failed, error:" + e.getMessage());
         }
     }
-}
-
-@Data
-class Bar {
-    private String date;
-    private double open;
-    private double high;
-    private double low;
-    private double close;
-    private double volume;
-    private double vwap;
-    private int barCount;
-}
-
-@Data
-class BarInfo {
-    private String date;
-    private double vwap;
-    private double volatility;
-}
-
-@Data
-class Sig {
-    private int index;
-    private int quantity;
-    private String orderType;
 }

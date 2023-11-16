@@ -1,9 +1,9 @@
 package capital.daphne.services;
 
 import capital.daphne.JedisManager;
+import capital.daphne.models.BarInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Data;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -13,13 +13,6 @@ import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
 
 import java.util.List;
-
-@Data
-class BarInfo {
-    private String date;
-    private double vwap;
-    private double volatility;
-}
 
 public class BarSvc {
     private static final Logger logger = LoggerFactory.getLogger(BarSvc.class);
@@ -39,6 +32,7 @@ public class BarSvc {
                 ObjectMapper objectMapper = new ObjectMapper();
                 List<BarInfo> barList = objectMapper.readValue(storedBarListJson, new TypeReference<>() {
                 });
+
                 if (barList.size() < minBarNum) {
                     logger.info(String.format("barList is not ready, minBarNum=%d, currBarNum=%d", minBarNum, barList.size()));
                     return null;
@@ -49,10 +43,20 @@ public class BarSvc {
                 dataframe.addColumns(
                         StringColumn.create("date_us"),
                         DoubleColumn.create("vwap"),
+                        DoubleColumn.create("open"),
+                        DoubleColumn.create("close"),
+                        DoubleColumn.create("high"),
+                        DoubleColumn.create("low"),
                         DoubleColumn.create("volatility"));
-                for (BarInfo bar : barList) {
+
+                List<BarInfo> validBarList = barList.subList(barList.size() - minBarNum, barList.size());
+                for (BarInfo bar : validBarList) {
                     dataframe.stringColumn("date_us").append(bar.getDate());
                     dataframe.doubleColumn("vwap").append(bar.getVwap());
+                    dataframe.doubleColumn("open").append(bar.getOpen());
+                    dataframe.doubleColumn("high").append(bar.getHigh());
+                    dataframe.doubleColumn("low").append(bar.getLow());
+                    dataframe.doubleColumn("close").append(bar.getClose());
                     dataframe.doubleColumn("volatility").append(bar.getVolatility());
                 }
                 DoubleColumn prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
@@ -63,7 +67,7 @@ public class BarSvc {
                 return null;
             }
         } catch (Exception e) {
-            logger.error("barList update failed, error:" + e.getMessage());
+            logger.error("getDataTable, error:" + e.getMessage());
             return null;
         }
     }

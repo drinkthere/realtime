@@ -98,10 +98,27 @@ public class AppConfigManager {
             private int volatilityA;
             private int volatilityB;
             private int volatilityC;
+            private DMAParams dmaParams;
 
             private CloseAlgorithmConfig closeAlgo;
             private ClosePortfolio closePortfolio;
             private hardLimit hardLimit;
+        }
+
+        @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class DMAParams {
+            private String orderMode;
+            private int slowWindow;
+            private int fastWindow;
+            private int trendWindow;
+            private String longFilterKey;
+            private double longFilterGt;
+            private String shortFilterKey;
+            private double shortFilterGt;
+            private int addLongAfterSeconds;
+            private int delayOpenSeconds;
+            private int barSeconds;
         }
 
         @Data
