@@ -125,4 +125,22 @@ public class OrderTest {
         }
 
     }
+
+
+    @Test
+    public void testVolatility() {
+        double openMarketVolatilityFactor = 1.5;
+        int total = 600;
+        for (int i = 1; i <= total; i++) {
+            double f = calCurrentVolatilityFactor(openMarketVolatilityFactor, i, total, 0.618);
+            System.out.println(f);
+        }
+    }
+
+    private double calCurrentVolatilityFactor(double openMarketVolatilityFactor, int passedSeconds, int totalSeconds, double k) {
+        //return Math.pow((float) passedSeconds / totalSeconds, k);
+
+        //openMarketVolatilityFactor * (1 - Math.pow(1 - 1 / openMarketVolatilityFactor, Math.pow(passedSeconds /totalSeconds, -k)));
+        return openMarketVolatilityFactor * (1 - Math.pow(1 - 1 / openMarketVolatilityFactor, Math.pow((float) passedSeconds / totalSeconds, -k)));
+    }
 }
