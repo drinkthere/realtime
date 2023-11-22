@@ -53,6 +53,7 @@
       "accountId": "DU6380369",
       "symbol": "AUD",
       "secType": "CASH",
+      "startTradingAfterOpenMarketSeconds": 3600,
       "maxPortfolioPositions": 500,
       "positionSignalMarginOffset": 0,
       "orderSize": 100,

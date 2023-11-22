@@ -19,32 +19,32 @@ public class ContractTest {
         // 20231101:0400-20231101:2000;20231102:0400-20231102:2000;20231103:0400-20231103:2000;20231104:CLOSED;20231105:CLOSED;20231106:0400-20231106:2000
         // STK 未到盘前
         LocalDateTime dateTime = Utils.genUsDateTime("2023-11-01 03:59", "yyyy-MM-dd HH:mm");
-        boolean marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        boolean marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // STK 盘前开始，但是不交易
         dateTime = Utils.genUsDateTime("2023-11-01 05:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // STK 盘中
         dateTime = Utils.genUsDateTime("2023-11-06 09:33", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // STK 盘后, 但是不交易
         dateTime = Utils.genUsDateTime("2023-11-01 16:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // STK STK 已过盘后
         dateTime = Utils.genUsDateTime("2023-11-01 20:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // 休市
         dateTime = Utils.genUsDateTime("2023-11-04 09:50", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
 
@@ -53,27 +53,27 @@ public class ContractTest {
         // 20231101:0930-20231101:1600;20231102:0930-20231102:1600;20231103:0930-20231103:1600;20231104:CLOSED;20231105:CLOSED;20231106:0930-20231106:1600
         // STK 未开盘
         dateTime = Utils.genUsDateTime("2023-11-01 09:29", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // STK 开盘
         dateTime = Utils.genUsDateTime("2023-11-01 09:30", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // STK 盘中
         dateTime = Utils.genUsDateTime("2023-11-01 10:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // STK 收盘
         dateTime = Utils.genUsDateTime("2023-11-01 16:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // 休市
         dateTime = Utils.genUsDateTime("2023-11-05 09:50", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
 
@@ -82,55 +82,55 @@ public class ContractTest {
         // 20231031:1700-20231101:1600;20231101:1700-20231102:1600;20231102:1700-20231103:1600;20231104:CLOSED;20231105:1700-20231106:1600;20231106:1700-20231107:1600
         // FUT 未开盘
         dateTime = Utils.genUsDateTime("2023-11-01 16:29", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // FUT 开盘
         dateTime = Utils.genUsDateTime("2023-11-01 17:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // FUT 盘中
         dateTime = Utils.genUsDateTime("2023-11-01 18:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // FUT 收盘
         dateTime = Utils.genUsDateTime("2023-11-02 16:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // FUT 休市
         dateTime = Utils.genUsDateTime("2023-11-03 18:50", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
-        symbol = "EUR";
+        symbol = "AUD";
         secType = "CASH";
         // 20231031:1715-20231101:1700;20231101:1715-20231102:1700;20231102:1715-20231103:1700;20231104:CLOSED;20231105:1715-20231106:1700;20231106:1715-20231107:1700
         // CASH 未开盘
-        dateTime = Utils.genUsDateTime("2023-11-01 17:10", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        dateTime = Utils.genUsDateTime("2023-11-22 17:16", "yyyy-MM-dd HH:mm");
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // CASH 开盘
         dateTime = Utils.genUsDateTime("2023-11-01 17:15", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // CASH 盘中
         dateTime = Utils.genUsDateTime("2023-11-01 18:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(marketOpen);
 
         // CASH 收盘
         dateTime = Utils.genUsDateTime("2023-11-02 17:00", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
 
         // CASH 休市
         dateTime = Utils.genUsDateTime("2023-11-03 18:50", "yyyy-MM-dd HH:mm");
-        marketOpen = Utils.isTradingNow(symbol, secType, dateTime);
+        marketOpen = Utils.isTradingNow(symbol, secType, dateTime, 0);
         System.out.println(!marketOpen);
     }
 

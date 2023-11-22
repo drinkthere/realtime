@@ -43,7 +43,7 @@ public class Reset implements AlgorithmProcessor {
             if (resetDatetime == null) {
                 resetDatetime = datetime.plusSeconds(hl.getMinDurationWhenReset());
                 // 如果延时之后，reset时间已经超出交易时间，就马上触发
-                if (!Utils.isTradingNow(symbol, secType, resetDatetime)) {
+                if (!Utils.isTradingNow(symbol, secType, resetDatetime, ac.getStartTradingAfterOpenMarketSeconds())) {
                     resetDatetime = datetime;
                 }
             }

@@ -90,7 +90,7 @@ public class SignalSvc {
         String dataKey = Utils.genKey(symbol, secType);
         String algoKey = ac.getAccountId() + ":" + dataKey;
 
-        if (Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow())) {
+        if (Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds())) {
             // 获取bar信息
             Table df = barService.getDataTable(dataKey, ac.getNumStatsBars());
             if (df == null) {

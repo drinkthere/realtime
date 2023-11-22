@@ -89,6 +89,7 @@ public class AppConfigManager {
             private String accountId;
             private String symbol;
             private String secType;
+            private int startTradingAfterOpenMarketSeconds;
             private int maxPortfolioPositions;
             private float positionSignalMarginOffset;
             private int orderSize;

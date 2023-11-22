@@ -27,7 +27,7 @@ import java.util.UUID;
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
 
-    public static boolean isTradingNow(String symbol, String secType, LocalDateTime currentTime) {
+    public static boolean isTradingNow(String symbol, String secType, LocalDateTime currentTime, int startTradingAfterOpenMarketSeconds) {
         boolean open = false;
         String redisKey = String.format("%s:%s:TRADING_PERIODS", symbol, secType);
         JedisPool jedisPool = JedisManager.getJedisPool();
@@ -42,7 +42,8 @@ public class Utils {
                     }
 
                     logger.debug("tradingHour is Closed:" + (currentTime.isAfter(tradingHour.getStartTime()) || currentTime.isEqual(tradingHour.getStartTime())));
-                    if ((currentTime.isAfter(tradingHour.getStartTime()) || currentTime.isEqual(tradingHour.getStartTime())) &&
+                    LocalDateTime startTradingTime = tradingHour.getStartTime().plusSeconds(startTradingAfterOpenMarketSeconds);
+                    if ((currentTime.isAfter(startTradingTime) || currentTime.isEqual(startTradingTime)) &&
                             currentTime.isBefore(tradingHour.getEndTime())) {
                         return true;
                     }
@@ -316,7 +317,7 @@ public class Utils {
     }
 
     public static double calToVolatilityMultiplier(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
-        return 1 + ac.getVolatilityA() +
+        return ac.getVolatilityA() +
                 ac.getVolatilityB() * volatility +
                 ac.getVolatilityC() * volatility * volatility;
     }
