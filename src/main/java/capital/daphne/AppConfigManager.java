@@ -99,6 +99,16 @@ public class AppConfigManager {
             private int volatilityA;
             private int volatilityB;
             private int volatilityC;
+            // 以下三个值是计算volatility时间权重的参数
+            private double timeWeightedA;
+            private double timeWeightedB;
+            private double timeWeightedC;
+            // 计算开盘倍数用到的曲率参数
+            private double volatilityOpenMarketK;
+            // 经过多少s衰减到1倍
+            private int marketOpenReductionSeconds;
+            // 计算衰减值的曲率参数
+            private double reductionFactor;
             private DMAParams dmaParams;
 
             private CloseAlgorithmConfig closeAlgo;

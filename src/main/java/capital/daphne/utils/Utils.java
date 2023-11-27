@@ -17,15 +17,42 @@ import tech.tablesaw.columns.numbers.DoubleColumnType;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
+
+    public static LocalDateTime getMarketOpenTime(String symbol, String secType) {
+        LocalDate today = LocalDate.now();
+        LocalTime time = LocalTime.of(9, 30, 0);
+        LocalDateTime marketOpenTime = LocalDateTime.of(today, time);
+
+
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            // 兼容parallel/rewrite
+            String mapKey = String.format("%s:%s:KEY_MAP", symbol, secType);
+            String key = jedis.get(mapKey);
+
+            String redisKey = String.format("%s:TRADING_PERIODS", key);
+            String tradingHoursStr = jedis.get(redisKey);
+            if (tradingHoursStr != null) {
+                TradingHours[] tradingHours = parseTradingHours(tradingHoursStr, secType);
+                for (TradingHours tradingHour : tradingHours) {
+                    LocalDateTime now = genUsDateTimeNow();
+                    if (now.toLocalDate().equals(tradingHour.getStartTime().toLocalDate())) {
+                        return tradingHour.getStartTime();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return marketOpenTime;
+    }
 
     public static boolean isTradingNow(String symbol, String secType, LocalDateTime currentTime, int startTradingAfterOpenMarketSeconds) {
         boolean open = false;
@@ -117,6 +144,31 @@ public class Utils {
         return ret;
     }
 
+    public static boolean isMarketClose(String symbol, String secType, LocalDateTime currentTime) {
+        boolean ret = false;
+        String redisKey = String.format("%s:%s:TRADING_PERIODS", symbol, secType);
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String tradingHoursStr = jedis.get(redisKey);
+            if (tradingHoursStr != null) {
+                TradingHours[] tradingHours = parseTradingHours(tradingHoursStr, secType);
+                for (TradingHours tradingHour : tradingHours) {
+                    if (tradingHour.isClosed()) {
+                        return true;
+                    }
+
+                    if (currentTime.isAfter(tradingHour.getEndTime()) && currentTime.isBefore(tradingHour.getStartTime())) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ret;
+    }
+
     public static String genKey(String symbol, String secType) {
         return symbol + ":" + secType;
     }
@@ -126,7 +178,6 @@ public class Utils {
     }
 
     public static DoubleColumn ewm(DoubleColumn inputCol, double alpha, String outputColumnName, boolean prefillSma, boolean adjust, int period, int minPeriods) {
-
         DoubleColumn result = DoubleColumn.create(outputColumnName, inputCol.size());
         int startIndex = 1;
         if (prefillSma) {
@@ -140,7 +191,6 @@ public class Utils {
         } else {
             result.set(0, inputCol.getDouble(0));
         }
-
         if (!adjust) {
             for (int i = startIndex; i < inputCol.size(); i++) {
                 Double prevValue = result.getDouble(i - 1);
@@ -298,7 +348,7 @@ public class Utils {
         try {
             String redisKey = accountId + ":" + symbol + ":" + secType + ":ORDER_LIST";
             String storedOrderListJson = jedis.get(redisKey);
-            logger.info("redis|" + redisKey + "|" + storedOrderListJson);
+            logger.debug("redis|" + redisKey + "|" + storedOrderListJson);
             if (storedOrderListJson == null) {
                 return null;
             }

@@ -83,16 +83,17 @@ public class SignalSvc {
         }
     }
 
-    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac) {
+    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, List<String> wapList) {
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
         String secType = ac.getSecType();
         String dataKey = Utils.genKey(symbol, secType);
         String algoKey = ac.getAccountId() + ":" + dataKey;
 
+        // 生成volatility
         if (Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds())) {
             // 获取bar信息
-            Table df = barService.getDataTable(dataKey, ac.getNumStatsBars());
+            Table df = barService.getDataTable(dataKey, ac, wapList);
             if (df == null) {
                 return null;
             }

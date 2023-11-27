@@ -1,0 +1,92 @@
+{
+  "database": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "root",
+    "password": "123456",
+    "dbname": "quant",
+    "initialConnectionsSize": 5,
+    "maxConnectionsTotal": 10
+  },
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 6379,
+    "password": "MhxzKhl@2023"
+  },
+  "http": {
+    "host": "127.0.0.1",
+    "port": 5500,
+    "path": "trade"
+  },
+  "contracts": [
+    {
+      "symbol": "EUR",
+      "secType": "CASH",
+      "lastTradeDateOrContractMonth": "",
+      "multiplier": "",
+      "exchange": "IDEALPRO",
+      "primaryExchange": "",
+      "currency": "USD"
+    },
+    {
+      "symbol": "AUD",
+      "secType": "CASH",
+      "lastTradeDateOrContractMonth": "",
+      "multiplier": "",
+      "exchange": "IDEALPRO",
+      "primaryExchange": "",
+      "currency": "USD"
+    },
+    {
+      "symbol": "USD",
+      "secType": "CASH",
+      "lastTradeDateOrContractMonth": "",
+      "multiplier": "",
+      "exchange": "IDEALPRO",
+      "primaryExchange": "",
+      "currency": "JPY"
+    }
+  ],
+  "algorithms": [
+    {
+      "name": "DMA",
+      "accountId": "DU6380369",
+      "symbol": "AUD",
+      "secType": "CASH",
+      "startTradingAfterOpenMarketSeconds": 3600,
+      "maxPortfolioPositions": 500,
+      "positionSignalMarginOffset": 0,
+      "orderSize": 100,
+      "minIntervalBetweenSignal": 15,
+      "signalMargin": 0.0003,
+      "numStatsBars": 1500,
+      "volatilityA": 0,
+      "volatilityB": 160,
+      "volatilityC": 0,
+      "dmaParams": {
+        "orderMode": "l",
+        "slowWindow": 1400,
+        "fastWindow": 70,
+        "trendWindow": 100,
+        "longFilterKey": "WILLR",
+        "longFilterGt": -80,
+        "shortFilterKey": "-",
+        "shortFilterGt": 0,
+        "stopLoss": -0.005,
+        "addLongAfterSeconds": 0,
+        "delayOpenSeconds": 300,
+        "barSeconds": 5
+      },
+      "closeAlgo": {
+        "method": "TrailingStop",
+        "minDurationBeforeClose": 15,
+        "maxDurationToClose": 9999999,
+        "trailingStopThreshold": 0.00015
+      },
+      "closePortfolio": {
+        "method": "Portfolio",
+        "secondsBeforeMarketClose": 600
+      }
+    }
+  ]
+}

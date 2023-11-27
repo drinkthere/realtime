@@ -37,6 +37,7 @@ public class TrailingStop implements AlgorithmProcessor {
 
         AppConfigManager.AppConfig.CloseAlgorithmConfig cac = ac.getCloseAlgo();
         Row row = df.row(df.rowCount() - 1);
+
         double volatility = row.getDouble("volatility");
         double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac, volatility);
 
@@ -54,7 +55,7 @@ public class TrailingStop implements AlgorithmProcessor {
 
             String maxMinKey = String.format("%s:%s:MAX_MIN_WAP", symbol, secType);
             String storedWapMaxMinJson = jedis.get(maxMinKey);
-            logger.info("redis|" + maxMinKey + "|" + storedWapMaxMinJson);
+            logger.debug("redis|" + maxMinKey + "|" + storedWapMaxMinJson);
             if (storedWapMaxMinJson == null) {
                 return null;
             }
@@ -77,10 +78,16 @@ public class TrailingStop implements AlgorithmProcessor {
             LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
             LocalDateTime now = LocalDateTime.now();
 
+//            String nowDateTime = row.getString("date_us");
+//            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
+//            LocalDateTime lastOrderDateTime = LocalDateTime.parse(lodt, formatter);
+//            LocalDateTime now = LocalDateTime.parse(nowDateTime, formatter);
+
             double threshold = volatilityMultiplier * cac.getTrailingStopThreshold();
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
-                logger.info(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%b|sbm=%b",
+
+                logger.warn(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%b|sbm=%b",
                         accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(), position,
                         wapMaxMin.getMaxWap(), wapMaxMin.getMinWap(),
                         row.getDouble("vwap") <= (1 - cac.getTrailingStopThreshold()) * wapMaxMin.getMaxWap(),

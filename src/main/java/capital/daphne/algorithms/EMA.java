@@ -3,6 +3,7 @@ package capital.daphne.algorithms;
 import capital.daphne.AppConfigManager;
 import capital.daphne.models.ActionInfo;
 import capital.daphne.models.Signal;
+import capital.daphne.services.BarSvc;
 import capital.daphne.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,17 +24,18 @@ public class EMA implements AlgorithmProcessor {
 
     private String benchmarkColumnName;
 
+    private BarSvc barSvc;
 
     public EMA(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
         ac = algorithmConfig;
         resetDatetime = null;
+        barSvc = new BarSvc();
     }
 
     @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition) {
         try {
             Table df = preProcess(inputDf);
-
             Row latestBar = df.row(df.rowCount() - 1);
             return processToGetSignal(latestBar, position, maxPosition);
         } catch (Exception e) {
@@ -47,12 +49,18 @@ public class EMA implements AlgorithmProcessor {
         // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
         int numStatsBars = ac.getNumStatsBars();
         benchmarkColumnName = ac.getName() + numStatsBars;
+        DoubleColumn prevWapCol = df.doubleColumn("prev_vwap");
+        DoubleColumn emaColumn = DoubleColumn.create(benchmarkColumnName, prevWapCol.size());
+
 
         int period = numStatsBars;
         double multiplier = 2.0 / (period + 1);
-        DoubleColumn prev_vwap = df.doubleColumn("prev_vwap");
-        DoubleColumn ema = Utils.ewm(prev_vwap, multiplier, benchmarkColumnName, true, false, period, period - 1);
-        df.addColumns(ema);
+        Double prevEma = barSvc.getEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+        Double ema = prevWapCol.get(prevWapCol.size() - 1) * multiplier + prevEma * (1 - multiplier);
+        emaColumn.set(emaColumn.size() - 1, ema);
+        barSvc.setEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), ema);
+
+        df.addColumns(emaColumn);
         return df;
     }
 
@@ -80,10 +88,9 @@ public class EMA implements AlgorithmProcessor {
         double[] signalMargins = Utils.calculateSignalMargin(ac.getSecType(), ac.getSignalMargin(), ac.getPositionSignalMarginOffset(), volatilityMultiplier, position);
         double sellSignalMargin = signalMargins[1];
         double buySignalMargin = signalMargins[0];
-
-
         double vwap = row.getDouble("vwap");
         double ema = row.getDouble(benchmarkColumnName);
+        
         long sellIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastSellDateTime != null) {
             Duration sellDuration = Duration.between(lastSellDateTime, datetime);

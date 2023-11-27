@@ -1,13 +1,16 @@
 package sma;
 
 import capital.daphne.AppConfigManager;
+import capital.daphne.DbManager;
 import capital.daphne.JedisManager;
 import capital.daphne.algorithms.AlgorithmProcessor;
-import capital.daphne.algorithms.SMA;
-import capital.daphne.algorithms.close.MACDSingal;
+import capital.daphne.algorithms.EMA;
+import capital.daphne.algorithms.close.TrailingStop;
 import capital.daphne.models.BarInfo;
 import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
+import capital.daphne.models.WapCache;
+import capital.daphne.services.BarSvc;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -24,9 +27,7 @@ import testmodels.Sig;
 import testutils.TestUtils;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class SMATest {
 
@@ -34,12 +35,20 @@ public class SMATest {
 
     private AppConfigManager.AppConfig.AlgorithmConfig ac;
 
-    private List<String> dateList;
-    private Map<String, Double> maxWapMap;
-    private Map<String, Double> minWapMap;
+    private WapCache wapMaxMin;
+
+    private BarSvc barsvc;
+
+    private String key;
+
+    private List<String> wapList;
 
     @Test
     public void testSma() {
+        logger.info("initialize database handler: mysql");
+        DbManager.initializeDbConnectionPool();
+
+        barsvc = new BarSvc();
         //!!!!!!!!!!!!!!!!!!!!!! 记得修改下MACDSignal/MACDZERO的计算时间的代码，把对应的行注释掉
         logger.info("initialize cache handler: redis");
         JedisManager.initializeJedisPool();
@@ -47,60 +56,77 @@ public class SMATest {
         AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
         List<AppConfigManager.AppConfig.AlgorithmConfig> algorithms = appConfig.getAlgorithms();
         ac = algorithms.get(0);
-        SMA sma = new SMA(ac);
-        AlgorithmProcessor closeProcessor = new MACDSingal(ac);
+        String symbol = ac.getSymbol();
+        String secType = ac.getSecType();
+        key = symbol + ":" + secType;
+
+        EMA ema = new EMA(ac);
+        AlgorithmProcessor closeProcessor = new TrailingStop(ac);
 
         String currentDirectory = System.getProperty("user.dir");
 
-        dateList = new ArrayList<>();
-        maxWapMap = new HashMap<>();
-        minWapMap = new HashMap<>();
+        wapMaxMin = new WapCache();
 
         // 读取csv文件，加载List<Bar>
         List<Bar> bars = TestUtils.loadCsv(currentDirectory + "/src/test/java/sma/spy_2023-09-27--2023-09-29.csv");
 
         // 生成我们需要的barList
         List<BarInfo> barList = new ArrayList<>();
-        int maxBarListSize = 1200;
+        int maxBarListSize = ac.getNumStatsBars() + 1;
 
         int position = 0;
         int maxPosition = ac.getMaxPortfolioPositions();
 
+        String day = null;
         List<Sig> result = new ArrayList<>();
+        wapList = new ArrayList<>();
+        boolean isFirst = true;
         for (int i = 0; i < bars.size(); i++) {
             Bar bar = bars.get(i);
+            String dateStr = bar.getDate();
+            String[] splits = dateStr.split(" ");
+            String processDate = splits[0];
+            if (day == null || !day.equals(processDate)) {
+                day = processDate;
+                wapList.clear();
+                barsvc.clearEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+            }
 
-            BarInfo barInfo = processBar(bar);
+            BarInfo barInfo = processBar(bar, ac);
             if (barInfo == null) {
                 continue;
             }
-            // System.out.println(barInfo.getVwap());
+            logger.info(bar.getDate() + ", " + barInfo.getVolatility());
             barList.add(barInfo);
             if (barList.size() > maxBarListSize) {
                 // 如果超过最大值，移除最早加入barList的数据
                 barList.remove(0);
             }
 
-            if (barList.size() < ac.getNumStatsBars()) {
+            if (barList.size() < maxBarListSize) {
                 continue;
             }
+
+            // 初始化ema，内部判断，只进行一次
+            barsvc.initEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), wapList, ac.getNumStatsBars());
 
             // 生成dataframe
             Table df = getTable(barList);
             Row row = df.row(df.rowCount() - 1);
-
-            // 获取信号
-            Signal signal = sma.getSignal(df, position, maxPosition);
+            Signal signal = ema.getSignal(df, position, maxPosition);
             if (signal != null && signal.isValid()) {
                 position += signal.getQuantity();
                 Sig sig = new Sig();
                 sig.setIndex(i);
                 sig.setQuantity(signal.getQuantity());
                 sig.setOrderType("OPEN");
+                sig.setDatetime(bar.getDate());
                 result.add(sig);
 
                 // update order list in redis
-                updateOrdersInRedis(ac.getSymbol(), ac.getSecType(), i, signal.getQuantity(), "OPEN", row);
+                updateOrdersInRedis(i, signal.getQuantity(), "OPEN", row);
+                wapMaxMin.setMaxWap(signal.getWap());
+                wapMaxMin.setMinWap(signal.getWap());
             } else {
                 if (ac.getCloseAlgo() != null && df.rowCount() == maxBarListSize) {
                     signal = closeProcessor.getSignal(df, position, maxPosition);
@@ -110,9 +136,10 @@ public class SMATest {
                         sig.setIndex(i);
                         sig.setQuantity(signal.getQuantity());
                         sig.setOrderType("CLOSE");
+                        sig.setDatetime(bar.getDate());
                         result.add(sig);
                         // update order list in redis
-                        updateOrdersInRedis(ac.getSymbol(), ac.getSecType(), i, signal.getQuantity(), "CLOSE", row);
+                        updateOrdersInRedis(i, signal.getQuantity(), "CLOSE", row);
                     }
                 }
             }
@@ -124,110 +151,59 @@ public class SMATest {
         System.out.println("Order num:" + result.size());
     }
 
-    private BarInfo processBar(Bar bar) {
-        double vwap = bar.getVwap();
-        double wap;
+    private BarInfo processBar(Bar bar, AppConfigManager.AppConfig.AlgorithmConfig ac) {
+        // 获取wap信息
+        double wap = bar.getVwap();
+        // 如果volume <= 0 （MIDPOINT 或 部分TRADES), 这个时候用TWAP;
         if (bar.getVolume() <= 0) {
             wap = (bar.getOpen() + bar.getHigh() + bar.getLow() + bar.getClose()) / 4;
-            if (wap / vwap >= 1.001 || wap / vwap <= 0.999) {
-                return null;
-            }
-        } else {
-            wap = vwap;
         }
 
-        String[] s = bar.getDate().split(" ");
-        String dateStr = s[0];
-        double prevMax;
-        double prevMin;
-        double currMax;
-        double currMin;
-        if (maxWapMap.containsKey(dateStr)) {
-            currMax = maxWapMap.get(dateStr);
-        } else {
-            currMax = wap;
-            maxWapMap.put(dateStr, wap);
-            dateList.add(dateStr);
+        // datasource 相关配置
+        int historyDurationSeconds = 7200;
+        // 只保留指定数量的wapList
+        int maxKeepNumOfWap = historyDurationSeconds / 5 + 1;
+        if (wapList.size() >= maxKeepNumOfWap) {
+            // 如果长度超过maxLength，从队头移除一项
+            wapList.remove(0);
         }
+        // 添加新数据到队尾
+        wapList.add(String.valueOf(bar.getVwap()));
 
-        if (minWapMap.containsKey(dateStr)) {
-            currMin = minWapMap.get(dateStr);
-        } else {
-            currMin = wap;
-            minWapMap.put(dateStr, wap);
-            dateList.add(dateStr);
+        if (wapList.size() < maxKeepNumOfWap) {
+            // 数量不够，先返回
+            return null;
         }
-
-        boolean needUpdated = false;
-        if (wap > currMax) {
-            currMax = wap;
-            needUpdated = true;
+        // 更新订单之间的wapMaxMin
+        boolean dataUpdate = false;
+        if (wap >= wapMaxMin.getMaxWap()) {
+            wapMaxMin.setMaxWap(wap);
+            dataUpdate = true;
         }
-        if (wap < currMin) {
-            currMin = wap;
-            needUpdated = true;
+        if (wap <= wapMaxMin.getMinWap()) {
+            wapMaxMin.setMinWap(wap);
+            dataUpdate = true;
         }
-
-        if (needUpdated) {
-            minWapMap.put(dateStr, currMin);
-            maxWapMap.put(dateStr, currMax);
-        }
-
-        int i = dateList.indexOf(dateStr);
-        if (i == -1) {
-            prevMax = 0.0;
-            prevMin = 0.0;
-            logger.info("error date index");
-            System.exit(-1);
-        } else if (i == 0) {
-            prevMax = 0.0;
-            prevMin = 0.0;
-        } else {
-            String prevDateStr = dateList.get(i - 1);
-            prevMax = maxWapMap.getOrDefault(prevDateStr, 0.0);
-            prevMin = minWapMap.getOrDefault(prevDateStr, 0.0);
-            if (prevMax == 0.0 || prevMin == 0.0) {
-                logger.info("error date index");
-                System.exit(-1);
-            }
+        logger.debug(String.format("update wapMaxMin, max=%f, min=%f, wap=%f", wapMaxMin.getMaxWap(), wapMaxMin.getMinWap(), wap));
+        if (dataUpdate) {
+            TestUtils.updateWapMaxMinInRedis(key, wapMaxMin);
         }
 
 
+        BarInfo barInfo = new BarInfo();
         try {
-            BarInfo barInfo = new BarInfo();
             barInfo.setDate(bar.getDate());
             barInfo.setVwap(wap);
-            double[] wapArr = new double[]{prevMax, prevMin, currMax, currMin};
-            double volatility = calVolatility(wap, wapArr);
-
+            barInfo.setHigh(bar.getHigh());
+            barInfo.setLow(bar.getLow());
+            barInfo.setOpen(bar.getOpen());
+            barInfo.setClose(bar.getClose());
+            double volatility = TestUtils.calVolatility(ac, wapList.subList(0, wapList.size() - 1), bar.getDate());
             barInfo.setVolatility(volatility);
             return barInfo;
         } catch (Exception e) {
             return null;
         }
-    }
-
-    private double calVolatility(double wap, double[] wapArr) {
-        double prevMaxWap = wapArr[0];
-        double prevMinWap = wapArr[1];
-        double currMaxWap = wapArr[2];
-        double currMinWap = wapArr[3];
-
-        if (prevMaxWap == 0) {
-            prevMaxWap = currMaxWap;
-        }
-
-        if (prevMinWap == 0) {
-            prevMinWap = currMinWap;
-        }
-
-
-        double maxWap = Math.max(prevMaxWap, currMaxWap);
-        double minWap = Math.min(prevMinWap, currMinWap);
-        double volatility = (maxWap - minWap) / minWap;
-        // System.out.println(maxWap + "|" + minWap);
-        return volatility;
-        // return Utils.roundNum(volatility, 6);
     }
 
     private Table getTable(List<BarInfo> barList) {
@@ -247,11 +223,11 @@ public class SMATest {
         return dataframe;
     }
 
-    private void updateOrdersInRedis(String symbol, String secType, int orderId, int quantity, String orderType, Row row) {
+    private void updateOrdersInRedis(int orderId, int quantity, String orderType, Row row) {
         String dateNow = row.getString("date_us");
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
-            String redisKey = String.format("%s.%s.%s.ORDER_LIST", ac.getAccountId(), symbol, secType);
+            String redisKey = String.format("%s:%s:%s:ORDER_LIST", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
             if (orderType.equals("CLOSE")) {
                 // close信号来时，清除队列中的数据
                 jedis.del(redisKey);
@@ -282,4 +258,6 @@ public class SMATest {
             logger.error("update position in redis failed, error:" + e.getMessage());
         }
     }
+
+
 }
