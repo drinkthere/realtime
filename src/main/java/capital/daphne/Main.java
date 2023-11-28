@@ -70,9 +70,6 @@ public class Main {
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
                             try {
-                                // 初始化ema的值
-                                barSvc.initEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), wapList, ac.getNumStatsBars());
-
                                 // 如果当前股票已经有信号在处理中，就跳过
                                 String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
                                 boolean inProgress = Utils.isInProgress(inProgressKey);
@@ -80,6 +77,9 @@ public class Main {
                                     logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
                                     return;
                                 }
+
+                                // 初始化ema的值
+                                barSvc.initEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), wapList, ac.getNumStatsBars());
 
                                 // 获取信号
                                 Signal tradeSignal = signalSvc.getTradeSignal(ac, wapList);
@@ -115,10 +115,13 @@ public class Main {
             for (AppConfigManager.AppConfig.AlgorithmConfig ac : algorithms) {
                 if (Utils.isMarketClose(ac.getSymbol(), ac.getSecType(), Utils.genUsDateTimeNow())) {
                     // 交易结束期间，清除缓存
+                    logger.warn(String.format("clear ema %s %s %s", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
                     barSvc.clearEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                } else {
+                    logger.info(String.format("check scheduling task %s %s %s", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
                 }
             }
         }, 0, 5, TimeUnit.MINUTES);
-        logger.info("connection monitor task started");
+        logger.info("scheduling clear redis task started");
     }
 }

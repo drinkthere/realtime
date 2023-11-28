@@ -94,16 +94,17 @@ public class BarSvc {
     }
 
     public List<String> getWapList(String key) {
+        // 因为存在parallel和rewrite的symbol，所以先做key映射然后在获取对应的wap信息
         List<String> wapList = new ArrayList<>();
-        String wapKey = String.format("%s:KEY_MAP", key);
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
-            String dataKey = jedis.get(wapKey);
-            if (dataKey == null) {
+            String fromKey = String.format("%s:KEY_MAP", key);
+            String toKey = jedis.get(fromKey);
+            if (toKey == null) {
                 return wapList;
             }
 
-            String redisKey = String.format("%s:WAP_LIST", dataKey);
+            String redisKey = String.format("%s:WAP_LIST", toKey);
             List<String> storedList = jedis.lrange(redisKey, 0, -1);
             return storedList == null ? wapList : storedList;
         } catch (Exception e) {
@@ -270,9 +271,10 @@ public class BarSvc {
         }
         int period = numStatsBars;
         double multiplier = 2.0 / (period + 1);
-        DoubleColumn emaColumn = Utils.ewm(wapColumn.lag(2), multiplier, "ema", true, false, period, period - 1);
-        Double emaValue = emaColumn.get(emaColumn.size() - 1);
-        setEma(accountId, symbol, secType, emaValue);
+        // 原始公式用的是prev_vwap来计算的，所以需要lag(1), 但是这里我们希望计算的是prev_ema，所以lag(2)。后面我们还会用这里的prev_ema计算当前bar的ema。
+        DoubleColumn prevEmaColumn = Utils.ewm(wapColumn.lag(2), multiplier, "prevEma", true, false, period, period - 1);
+        Double prevEmaValue = prevEmaColumn.get(prevEmaColumn.size() - 1);
+        setEma(accountId, symbol, secType, prevEmaValue);
     }
 
     public void setEma(String accountId, String symbol, String secType, double ema) {

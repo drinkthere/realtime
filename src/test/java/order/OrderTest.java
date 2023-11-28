@@ -17,7 +17,6 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 public class OrderTest {
 
@@ -28,10 +27,9 @@ public class OrderTest {
         Signal signal = new Signal();
         signal.setValid(true);
         signal.setAccountId("DU6380369");
-        signal.setUuid(UUID.randomUUID().toString());
         signal.setSymbol("EUR");
         signal.setSecType("CASH");
-        signal.setWap(1.05628);
+        signal.setWap(1.09552);
         signal.setQuantity(20000);
         signal.setOrderType(Signal.OrderType.OPEN);
         signal.setBenchmarkColumn("sma18");

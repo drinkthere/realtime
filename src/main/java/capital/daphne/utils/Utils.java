@@ -99,7 +99,7 @@ public class Utils {
                     LocalDateTime startTime = LocalDateTime.parse(startAndEnd[0], formatter).atZone(easternTimeZone).toLocalDateTime();
                     LocalDateTime endTime = LocalDateTime.parse(startAndEnd[1], formatter).atZone(easternTimeZone).toLocalDateTime();
 
-                    if (secType.equals("STK")) {
+                    if (secType.equals("STK") || secType.equals("CFD")) {
                         LocalDateTime openMarketTime = startTime.withHour(9).withMinute(30);
                         if (startTime.isBefore(openMarketTime)) {
                             startTime = openMarketTime;

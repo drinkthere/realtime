@@ -61,6 +61,7 @@ public class EMA implements AlgorithmProcessor {
         barSvc.setEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), ema);
 
         df.addColumns(emaColumn);
+        logger.debug("====" + ema + "==" + emaColumn.get(emaColumn.size() - 1) + "==" + df.row(df.rowCount() - 1).getDouble(benchmarkColumnName));
         return df;
     }
 
@@ -90,7 +91,7 @@ public class EMA implements AlgorithmProcessor {
         double buySignalMargin = signalMargins[0];
         double vwap = row.getDouble("vwap");
         double ema = row.getDouble(benchmarkColumnName);
-        
+
         long sellIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastSellDateTime != null) {
             Duration sellDuration = Duration.between(lastSellDateTime, datetime);

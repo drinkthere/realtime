@@ -189,7 +189,6 @@ public class SignalSvc {
 
             JSONObject requestData = new JSONObject();
             requestData.put("accountId", signal.getAccountId());
-            requestData.put("uuid", signal.getUuid());
             requestData.put("symbol", signal.getSymbol());
             requestData.put("secType", signal.getSecType());
             requestData.put("wap", signal.getWap());
