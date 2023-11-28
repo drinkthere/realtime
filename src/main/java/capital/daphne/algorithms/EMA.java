@@ -57,6 +57,7 @@ public class EMA implements AlgorithmProcessor {
         double multiplier = 2.0 / (period + 1);
         Double prevEma = barSvc.getEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
         Double ema = prevWapCol.get(prevWapCol.size() - 1) * multiplier + prevEma * (1 - multiplier);
+        // System.out.println(df.row(df.rowCount() - 1).getString("date_us") + "|" + ema);
         emaColumn.set(emaColumn.size() - 1, ema);
         barSvc.setEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), ema);
 
@@ -107,6 +108,8 @@ public class EMA implements AlgorithmProcessor {
         double longThreshold = ema * (1 - buySignalMargin);
         double shortThreshold = ema * (1 + sellSignalMargin);
 
+//        System.out.println(row.getString("date_us") + "|" + vwap + "|" + ema + "|" + volatility + "|" + volatilityMultiplier + "|" + buySignalMargin + "|" + sellSignalMargin + "|" + longThreshold + "|" + shortThreshold
+//                + "|" + (vwap <= longThreshold && position < maxPosition) + "|" + (vwap >= shortThreshold && position > -maxPosition));
         Signal signal = null;
         logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
                 ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));

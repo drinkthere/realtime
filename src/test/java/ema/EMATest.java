@@ -4,7 +4,7 @@ import capital.daphne.AppConfigManager;
 import capital.daphne.DbManager;
 import capital.daphne.JedisManager;
 import capital.daphne.algorithms.AlgorithmProcessor;
-import capital.daphne.algorithms.SMA;
+import capital.daphne.algorithms.EMA;
 import capital.daphne.algorithms.close.TrailingStop;
 import capital.daphne.models.BarInfo;
 import capital.daphne.models.OrderInfo;
@@ -29,7 +29,7 @@ import testutils.TestUtils;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SMATest {
+public class EMATest {
 
     private static final Logger logger = LoggerFactory.getLogger(EMATest.class);
 
@@ -60,7 +60,7 @@ public class SMATest {
         String secType = ac.getSecType();
         key = symbol + ":" + secType;
 
-        SMA ema = new SMA(ac);
+        EMA ema = new EMA(ac);
         AlgorithmProcessor closeProcessor = new TrailingStop(ac);
 
         String currentDirectory = System.getProperty("user.dir");
@@ -89,7 +89,7 @@ public class SMATest {
             if (day == null || !day.equals(processDate)) {
                 day = processDate;
                 wapList.clear();
-                barList.clear();
+                barsvc.clearEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
             }
 
             BarInfo barInfo = processBar(bar, ac);
@@ -106,6 +106,9 @@ public class SMATest {
             if (barList.size() < maxBarListSize) {
                 continue;
             }
+
+            // 初始化ema，内部判断，只进行一次
+            barsvc.initEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), wapList, ac.getNumStatsBars());
 
             // 生成dataframe
             Table df = getTable(barList);

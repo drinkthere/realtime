@@ -86,7 +86,9 @@ public class TrailingStop implements AlgorithmProcessor {
             double threshold = volatilityMultiplier * cac.getTrailingStopThreshold();
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
-
+//                System.out.println(row.getString("date_us") + "|" + wapMaxMin.getMaxWap() + "|" + row.getDouble("vwap") +
+//                        "|" + volatilityMultiplier + "|" + threshold + "|" + (row.getDouble("vwap") <= (1 - threshold) * wapMaxMin.getMaxWap()) +
+//                        "|" + (position < 0 && row.getDouble("vwap") >= (1 + threshold) * wapMaxMin.getMinWap()));
                 logger.warn(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|position=%d|maxWap=%f|minWap=%f|bm=%b|sbm=%b",
                         accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(), position,
                         wapMaxMin.getMaxWap(), wapMaxMin.getMinWap(),

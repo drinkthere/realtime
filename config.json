@@ -196,64 +196,32 @@
       "name": "EMA",
       "accountId": "DU6380369",
       "symbol": "SPY",
-      "secType": "CFD",
-      "startTradingAfterOpenMarketSeconds": 0,
-      "maxPortfolioPositions": 200,
-      "positionSignalMarginOffset": 0,
-      "orderSize": 200,
-      "minIntervalBetweenSignal": 72,
-      "signalMargin": 0.0012,
-      "numStatsBars": 18,
-      "volatilityA": 0,
-      "volatilityB": 200,
-      "volatilityC": -500,
-      "timeWeightedA": 1,
-      "timeWeightedB": -0.04,
-      "timeWeightedC": 0,
-      "volatilityOpenMarketK": 0.000007,
-      "marketOpenReductionSeconds": 100,
-      "reductionFactor": 0.025,
-      "closeAlgo": {
-        "method": "TrailingStop",
-        "minDurationBeforeClose": 10,
-        "maxDurationToClose": 9999999,
-        "trailingStopThreshold": 0.0003
-      },
-      "closePortfolio": {
-        "method": "Portfolio",
-        "secondsBeforeMarketClose": 1800
-      }
-    },
-    {
-      "name": "EMA",
-      "accountId": "DU6380369",
-      "symbol": "SPY",
       "secType": "STK",
       "startTradingAfterOpenMarketSeconds": 0,
       "maxPortfolioPositions": 100,
       "positionSignalMarginOffset": 0,
       "orderSize": 100,
       "minIntervalBetweenSignal": 72,
-      "signalMargin": 0.0012,
+      "signalMargin": 0.0009,
       "numStatsBars": 18,
       "volatilityA": 0,
       "volatilityB": 200,
-      "volatilityC": -500,
+      "volatilityC": 0,
       "timeWeightedA": 1,
-      "timeWeightedB": -0.04,
+      "timeWeightedB": -0.02,
       "timeWeightedC": 0,
-      "volatilityOpenMarketK": 0.000007,
+      "volatilityOpenMarketK": 0.000011,
       "marketOpenReductionSeconds": 100,
-      "reductionFactor": 0.025,
+      "reductionFactor": 0.015,
       "closeAlgo": {
         "method": "TrailingStop",
-        "minDurationBeforeClose": 10,
+        "minDurationBeforeClose": 5,
         "maxDurationToClose": 9999999,
         "trailingStopThreshold": 0.0003
       },
       "closePortfolio": {
         "method": "Portfolio",
-        "secondsBeforeMarketClose": 1800
+        "secondsBeforeMarketClose": 600
       }
     },
     {

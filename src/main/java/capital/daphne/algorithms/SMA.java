@@ -95,7 +95,8 @@ public class SMA implements AlgorithmProcessor {
         double shortThreshold = sma * (1 + sellSignalMargin);
 
         Signal signal = null;
-
+//        System.out.println(row.getString("date_us") + "|" + vwap + "|" + sma + "|" + volatility + "|" + volatilityMultiplier + "|" + buySignalMargin + "|" + sellSignalMargin + "|" + longThreshold + "|" + shortThreshold
+//                + "|" + (vwap <= longThreshold && position < maxPosition) + "|" + (vwap >= shortThreshold && position > -maxPosition));
         logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
                 ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));
         if (vwap <= longThreshold
