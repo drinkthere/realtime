@@ -37,10 +37,10 @@ public class Main {
         SignalSvc signalSvc = new SignalSvc(appConfig.getAlgorithms());
 
         ScheduledExecutorService clearRedisCacheExecutor = Executors.newScheduledThreadPool(1);
-        scheduleClearRedisCache(clearRedisCacheExecutor);
+        // scheduleClearRedisCache(clearRedisCacheExecutor);
 
 
-        JedisPool jedisPool = JedisManager.getPubsubPool();
+        JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
             // 监听bar更新的消息，然后根据配置中的algorithm来进行判断和处理，如果有信号，就给trader模块发送信号
             jedis.subscribe(new JedisPubSub() {

@@ -138,7 +138,6 @@ public class SignalSvc {
                 }
             }
 
-
             // 如果有满仓减仓配置，尝试获取减仓信号(e.g. 当position达到上线，并且配置了reset参数）
             AlgorithmProcessor closeHardLimitProcessor = closeHardLimitProcessorMap.get(algoKey);
             if (closeHardLimitProcessor != null) {
@@ -147,7 +146,6 @@ public class SignalSvc {
 
         } else {
             logger.info(String.format("symbol=%s, secType=%s, market is not open", symbol, secType));
-            // cleaDirtyData(ac);
         }
         return null;
     }

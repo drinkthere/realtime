@@ -44,6 +44,7 @@ public class BarSvc {
     public Table getDataTable(String key, AppConfigManager.AppConfig.AlgorithmConfig ac, List<String> wapList) {
         int minBarNum = ac.getNumStatsBars();
         JedisPool jedisPool = JedisManager.getJedisPool();
+
         try (Jedis jedis = jedisPool.getResource()) {
             // 数据只与symbol和secType油管，和accountId无关
             String redisKey = key + ":BAR_LIST";
@@ -69,7 +70,9 @@ public class BarSvc {
                         DoubleColumn.create("low"),
                         DoubleColumn.create("volatility"));
 
-                List<BarInfo> validBarList = barList.subList(barList.size() - minBarNum, barList.size());
+                // for prev_wap, so add 1
+                List<BarInfo> validBarList = barList.subList(barList.size() - (minBarNum + 1), barList.size());
+
                 for (BarInfo bar : validBarList) {
                     dataframe.stringColumn("date_us").append(bar.getDate());
                     dataframe.doubleColumn("vwap").append(bar.getVwap());
@@ -80,6 +83,7 @@ public class BarSvc {
                     double volatility = calVolatility(ac, wapList);
                     dataframe.doubleColumn("volatility").append(volatility);
                 }
+
                 DoubleColumn prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
                 dataframe.addColumns(prevVWapColumn.setName("prev_vwap"));
                 return dataframe;

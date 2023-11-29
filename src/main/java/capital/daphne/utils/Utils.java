@@ -26,31 +26,19 @@ public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
 
     public static LocalDateTime getMarketOpenTime(String symbol, String secType) {
+        LocalDateTime marketOpenTime = null;
         LocalDate today = LocalDate.now();
-        LocalTime time = LocalTime.of(9, 30, 0);
-        LocalDateTime marketOpenTime = LocalDateTime.of(today, time);
-
-
-        JedisPool jedisPool = JedisManager.getJedisPool();
-        try (Jedis jedis = jedisPool.getResource()) {
-            // 兼容parallel/rewrite
-            String mapKey = String.format("%s:%s:KEY_MAP", symbol, secType);
-            String key = jedis.get(mapKey);
-
-            String redisKey = String.format("%s:TRADING_PERIODS", key);
-            String tradingHoursStr = jedis.get(redisKey);
-            if (tradingHoursStr != null) {
-                TradingHours[] tradingHours = parseTradingHours(tradingHoursStr, secType);
-                for (TradingHours tradingHour : tradingHours) {
-                    LocalDateTime now = genUsDateTimeNow();
-                    if (now.toLocalDate().equals(tradingHour.getStartTime().toLocalDate())) {
-                        return tradingHour.getStartTime();
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (secType.equals("STK") || secType.equals("CFD")) {
+            LocalTime stkCfdTime = LocalTime.of(9, 30, 0);
+            marketOpenTime = LocalDateTime.of(today, stkCfdTime);
+        } else if (secType.equals("FUT")) {
+            LocalTime futTime = LocalTime.of(17, 00, 0);
+            marketOpenTime = LocalDateTime.of(today, futTime);
+        } else if (secType.equals("CASH")) {
+            LocalTime futTime = LocalTime.of(17, 15, 0);
+            marketOpenTime = LocalDateTime.of(today, futTime);
         }
+
         return marketOpenTime;
     }
 
