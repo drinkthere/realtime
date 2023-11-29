@@ -21,6 +21,7 @@ public class PositionSvc {
                 position = Integer.parseInt(positionStr);
             }
         } catch (Exception e) {
+            e.printStackTrace();
             logger.error(String.format("get position in redis failed, accountId=%s, symbol=%s, secType=%s error=%s",
                     accountId, symbol, secType, e.getMessage()));
         }

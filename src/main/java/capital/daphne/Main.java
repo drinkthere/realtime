@@ -56,7 +56,7 @@ public class Main {
                             .filter(algorithm -> symbol.equals(algorithm.getSymbol()) && secType.equals(algorithm.getSecType()))
                             .collect(Collectors.toList());
                     if (matchedAlgorithms.size() == 0) {
-                        logger.error("no matched algorithms to process");
+                        logger.error(String.format("%s %s no matched algorithms to process", symbol, secType));
                         return;
                     }
 

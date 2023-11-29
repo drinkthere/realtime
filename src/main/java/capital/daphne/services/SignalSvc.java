@@ -216,7 +216,7 @@ public class SignalSvc {
                     while ((line = in.readLine()) != null) {
                         response.append(line);
                     }
-                    logger.info("Response: " + response.toString());
+                    logger.debug("Response: " + response.toString());
                 }
             } else {
                 logger.error("HTTP POST request failed with response code: " + responseCode);
