@@ -135,6 +135,25 @@ public class OrderTest {
         }
     }
 
+    @Test
+    public void testOther() {
+        int quantity = -100;
+        int position = -100;
+        double maxWap = 189.210000;
+        double minWap = 189.126914;
+        double wap = 189.14;
+        double threshold = 0.0003;
+
+        if ((quantity > 0 && position > 0
+                && maxWap > 0 && wap <= (1 - threshold) * maxWap) ||
+                (quantity < 0 && position < 0)
+                        && minWap > 0 && wap >= (1 + threshold) * minWap) {
+            System.out.println("xxx");
+        } else {
+            System.out.println("yyy");
+        }
+    }
+
     private double calCurrentVolatilityFactor(double openMarketVolatilityFactor, int passedSeconds, int totalSeconds, double k) {
         //return Math.pow((float) passedSeconds / totalSeconds, k);
 
