@@ -41,7 +41,7 @@ public class BarSvc {
      * 如果还没有达到所需的最少bar数量，就返回null，避免判断是否要给出signal的时候因为数据缺失出问题
      * 返回数据前，需要计算出prev_vwap
      */
-    public Table getDataTable(String key, AppConfigManager.AppConfig.AlgorithmConfig ac, List<String> wapList) {
+    public Table getDataTable(String key, AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
         int minBarNum = ac.getNumStatsBars();
         JedisPool jedisPool = JedisManager.getJedisPool();
 
@@ -80,7 +80,7 @@ public class BarSvc {
                     dataframe.doubleColumn("high").append(bar.getHigh());
                     dataframe.doubleColumn("low").append(bar.getLow());
                     dataframe.doubleColumn("close").append(bar.getClose());
-                    double volatility = calVolatility(ac, wapList);
+                    // 实际上通常我们只需要最后一行的数据，所以这里都设置成volatility
                     dataframe.doubleColumn("volatility").append(volatility);
                 }
 
@@ -261,8 +261,8 @@ public class BarSvc {
         }
     }
 
-    public void initEma(String accountId, String symbol, String secType, List<String> wapList, int numStatsBars) {
-        double ema = getEma(accountId, symbol, secType);
+    public void initEma(String key, List<String> wapList, int numStatsBars) {
+        double ema = getEma(key);
         if (ema > 0.0) {
             return;
         }
@@ -278,11 +278,11 @@ public class BarSvc {
         // 原始公式用的是prev_vwap来计算的，所以需要lag(1), 但是这里我们希望计算的是prev_ema，所以lag(2)。后面我们还会用这里的prev_ema计算当前bar的ema。
         DoubleColumn prevEmaColumn = Utils.ewm(wapColumn.lag(2), multiplier, "prevEma", true, false, period, period - 1);
         Double prevEmaValue = prevEmaColumn.get(prevEmaColumn.size() - 1);
-        setEma(accountId, symbol, secType, prevEmaValue);
+        setEma(key, prevEmaValue);
     }
 
-    public void setEma(String accountId, String symbol, String secType, double ema) {
-        String redisKey = String.format("%s:%s:%s:EMA", accountId, symbol, secType);
+    public void setEma(String key, double ema) {
+        String redisKey = String.format("%s:EMA", key);
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.set(redisKey, String.valueOf(ema));
@@ -292,8 +292,8 @@ public class BarSvc {
         }
     }
 
-    public Double getEma(String accountId, String symbol, String secType) {
-        String redisKey = String.format("%s:%s:%s:EMA", accountId, symbol, secType);
+    public Double getEma(String key) {
+        String redisKey = String.format("%s:EMA", key);
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
             String emaString = jedis.get(redisKey);
@@ -314,6 +314,34 @@ public class BarSvc {
         } catch (Exception e) {
             e.printStackTrace();
             logger.error(redisKey + " clear ema failed, error:" + e.getMessage());
+        }
+    }
+
+    public void saveEmaToDb(String key, String benchmark, double benchmarkValue) {
+        String[] splits = key.split(":");
+        String accountId = splits[0];
+        String symbol = splits[1];
+        String secType = splits[2];
+        try (Connection connection = DbManager.getConnection()) {
+            String insertSQL = "INSERT INTO tb_benchmark_log (account_id, symbol, sec_type, benchmark, benchmark_value) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement insertStatement = connection.prepareStatement(insertSQL);
+            insertStatement.setString(1, accountId);
+            insertStatement.setString(2, symbol);
+            insertStatement.setString(3, secType);
+            insertStatement.setString(4, benchmark);
+            insertStatement.setDouble(5, benchmarkValue);
+            int rowCount = insertStatement.executeUpdate();
+            if (rowCount > 0) {
+                logger.debug(String.format("%s %s %s benchmark=%s, benchmarkValue=%f insert benchmark successfully.",
+                        accountId, symbol, secType, benchmark, benchmarkValue));
+            } else {
+                logger.error(String.format("%s %s %s benchmark=%s, benchmarkValue=%f insert benchmark failed.",
+                        accountId, symbol, secType, benchmark, benchmarkValue));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            logger.error(String.format("%s %s %s benchmark=%s, benchmarkValue=%f saveEmaToDb failed.",
+                    accountId, symbol, secType, benchmark, benchmarkValue));
         }
     }
 }

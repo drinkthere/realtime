@@ -108,7 +108,7 @@ public class EMATest {
             }
 
             // 初始化ema，内部判断，只进行一次
-            barsvc.initEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), wapList, ac.getNumStatsBars());
+            barsvc.initEma(ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType(), wapList, ac.getNumStatsBars());
 
             // 生成dataframe
             Table df = getTable(barList);

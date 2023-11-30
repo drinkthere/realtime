@@ -14,6 +14,7 @@ import tech.tablesaw.api.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.List;
 
 public class EMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EMA.class);
@@ -30,6 +31,10 @@ public class EMA implements AlgorithmProcessor {
         ac = algorithmConfig;
         resetDatetime = null;
         barSvc = new BarSvc();
+
+        // 初始化ema的值
+        List<String> wapList = barSvc.getWapList(ac.getSymbol() + ":" + ac.getSecType());
+        barSvc.initEma(ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType(), wapList, ac.getNumStatsBars());
     }
 
     @Override
@@ -55,12 +60,13 @@ public class EMA implements AlgorithmProcessor {
 
         int period = numStatsBars;
         double multiplier = 2.0 / (period + 1);
-        Double prevEma = barSvc.getEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+        String key = ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType();
+        Double prevEma = barSvc.getEma(key);
         Double ema = prevWapCol.get(prevWapCol.size() - 1) * multiplier + prevEma * (1 - multiplier);
         // System.out.println(df.row(df.rowCount() - 1).getString("date_us") + "|" + ema);
         emaColumn.set(emaColumn.size() - 1, ema);
-        barSvc.setEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), ema);
-
+        barSvc.setEma(key, ema);
+        barSvc.saveEmaToDb(key, benchmarkColumnName, ema);
         df.addColumns(emaColumn);
         logger.debug("====" + ema + "==" + emaColumn.get(emaColumn.size() - 1) + "==" + df.row(df.rowCount() - 1).getDouble(benchmarkColumnName));
         return df;

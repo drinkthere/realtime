@@ -86,69 +86,64 @@ public class SignalSvc {
         }
     }
 
-    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, List<String> wapList) {
+    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
         String secType = ac.getSecType();
         String dataKey = Utils.genKey(symbol, secType);
         String algoKey = ac.getAccountId() + ":" + dataKey;
 
-        // 生成volatility
-        if (Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds())) {
-            // 获取bar信息
-            Table df = barService.getDataTable(dataKey, ac, wapList);
-            if (df == null) {
-                return null;
-            }
 
-            // 获取position信息
-            int position = positionService.getPosition(accountId, symbol, secType);
-            int maxPosition = ac.getMaxPortfolioPositions();
+        // 获取bar信息
+        Table df = barService.getDataTable(dataKey, ac, volatility);
+        if (df == null) {
+            return null;
+        }
 
-            // 判断是否配置了收盘前平仓的逻辑(e.g. 盘前10分钟平仓)
-            AppConfigManager.AppConfig.ClosePortfolio closePortfolio = ac.getClosePortfolio();
-            if (closePortfolio != null) {
-                // 如果配置了，并且当前处于收盘前的平仓阶段, 无论有没有信号，都不会往下进行了
-                if (Utils.isCloseToClosing(symbol, secType, Utils.genUsDateTimeNow(), closePortfolio.getSecondsBeforeMarketClose())) {
-                    logger.info(String.format("symbol=%s, secType=%s, algoKey=%s is closing to close",
+        // 获取position信息
+        int position = positionService.getPosition(accountId, symbol, secType);
+        int maxPosition = ac.getMaxPortfolioPositions();
+
+        // 判断是否配置了收盘前平仓的逻辑(e.g. 盘前10分钟平仓)
+        AppConfigManager.AppConfig.ClosePortfolio closePortfolio = ac.getClosePortfolio();
+        if (closePortfolio != null) {
+            // 如果配置了，并且当前处于收盘前的平仓阶段, 无论有没有信号，都不会往下进行了
+            if (Utils.isCloseToClosing(symbol, secType, Utils.genUsDateTimeNow(), closePortfolio.getSecondsBeforeMarketClose())) {
+                logger.info(String.format("symbol=%s, secType=%s, algoKey=%s is closing to close",
+                        symbol, secType, algoKey));
+                AlgorithmProcessor closePortfolioProcessor = closePortfolioProcessorMap.get(algoKey);
+                if (closePortfolioProcessor == null) {
+                    logger.error(String.format("symbol=%s, secType=%s, algoKey=%s can't not find closePortfolioProcessor",
                             symbol, secType, algoKey));
-                    AlgorithmProcessor closePortfolioProcessor = closePortfolioProcessorMap.get(algoKey);
-                    if (closePortfolioProcessor == null) {
-                        logger.error(String.format("symbol=%s, secType=%s, algoKey=%s can't not find closePortfolioProcessor",
-                                symbol, secType, algoKey));
-                        return null;
-                    }
-                    return closePortfolioProcessor.getSignal(df, position, maxPosition);
+                    return null;
                 }
+                return closePortfolioProcessor.getSignal(df, position, maxPosition);
             }
+        }
 
-            // 判断是否要开仓, (open, e.g. SMA)
-            AlgorithmProcessor openAlgoProcessor = openAlgoProcessorMap.get(algoKey);
-            if (openAlgoProcessor != null) {
-                Signal signal = openAlgoProcessor.getSignal(df, position, maxPosition);
-                // 同一个标的的开仓和平仓信号不会在一个bar中处理，优先处理开仓信号，所以这里判断信号有效就先返回了
-                if (signal != null && signal.isValid()) {
-                    return signal;
-                }
+        // 判断是否要开仓, (open, e.g. SMA)
+        AlgorithmProcessor openAlgoProcessor = openAlgoProcessorMap.get(algoKey);
+        if (openAlgoProcessor != null) {
+            Signal signal = openAlgoProcessor.getSignal(df, position, maxPosition);
+            // 同一个标的的开仓和平仓信号不会在一个bar中处理，优先处理开仓信号，所以这里判断信号有效就先返回了
+            if (signal != null && signal.isValid()) {
+                return signal;
             }
+        }
 
-            // 如果有平仓的配置，尝试获取平仓信号 (close, e.g. TrailingStop)
-            AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
-            if (closeAlgoProcessor != null) {
-                Signal signal = closeAlgoProcessor.getSignal(df, position, maxPosition);
-                if (signal != null && signal.isValid()) {
-                    return signal;
-                }
+        // 如果有平仓的配置，尝试获取平仓信号 (close, e.g. TrailingStop)
+        AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
+        if (closeAlgoProcessor != null) {
+            Signal signal = closeAlgoProcessor.getSignal(df, position, maxPosition);
+            if (signal != null && signal.isValid()) {
+                return signal;
             }
+        }
 
-            // 如果有满仓减仓配置，尝试获取减仓信号(e.g. 当position达到上线，并且配置了reset参数）
-            AlgorithmProcessor closeHardLimitProcessor = closeHardLimitProcessorMap.get(algoKey);
-            if (closeHardLimitProcessor != null) {
-                return closeHardLimitProcessor.getSignal(df, position, maxPosition);
-            }
-
-        } else {
-            logger.info(String.format("symbol=%s, secType=%s, market is not open", symbol, secType));
+        // 如果有满仓减仓配置，尝试获取减仓信号(e.g. 当position达到上线，并且配置了reset参数）
+        AlgorithmProcessor closeHardLimitProcessor = closeHardLimitProcessorMap.get(algoKey);
+        if (closeHardLimitProcessor != null) {
+            return closeHardLimitProcessor.getSignal(df, position, maxPosition);
         }
         return null;
     }

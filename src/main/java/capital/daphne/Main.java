@@ -64,20 +64,31 @@ public class Main {
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
                             try {
-                                // 如果当前股票已经有信号在处理中，就跳过
-                                String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
-                                boolean inProgress = Utils.isInProgress(inProgressKey);
-                                if (inProgress) {
-                                    logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
-                                    return;
-                                }
 
-                                // 初始化ema的值
-                                barSvc.initEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), wapList, ac.getNumStatsBars());
+                                // 计算当前标的的volatility
+                                double volatility = barSvc.calVolatility(ac, wapList);
 
                                 // 获取信号
-                                Signal tradeSignal = signalSvc.getTradeSignal(ac, wapList);
+                                Signal tradeSignal = signalSvc.getTradeSignal(ac, volatility);
                                 if (tradeSignal != null && tradeSignal.isValid()) {
+                                    // 之所以把判断条件放在这里，是因为有些交易的benchmark（如EMA）对历史数据是有依赖的
+                                    // 因此无论如何都调用一下getTradingSingal，把对应的benchmark值给计算出来
+
+                                    // 当前股票已经有交易在进行
+                                    String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                    boolean inProgress = Utils.isInProgress(inProgressKey);
+                                    if (inProgress) {
+                                        logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                        return;
+                                    }
+
+                                    // 当前是否是可交易时间
+                                    boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
+                                    if (!isTradingNow) {
+                                        logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
+                                        return;
+                                    }
+
                                     // 记录信号
                                     signalSvc.saveSignal(tradeSignal);
 
