@@ -89,7 +89,7 @@ public class EMATest {
             if (day == null || !day.equals(processDate)) {
                 day = processDate;
                 wapList.clear();
-                barsvc.clearEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                barsvc.clearEma(ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType());
             }
 
             BarInfo barInfo = processBar(bar, ac);

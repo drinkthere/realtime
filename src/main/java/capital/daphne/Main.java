@@ -13,8 +13,6 @@ import redis.clients.jedis.JedisPubSub;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Main {
@@ -35,10 +33,6 @@ public class Main {
 
         logger.info("initialize signal service");
         SignalSvc signalSvc = new SignalSvc(appConfig.getAlgorithms());
-
-        ScheduledExecutorService clearRedisCacheExecutor = Executors.newScheduledThreadPool(1);
-        // scheduleClearRedisCache(clearRedisCacheExecutor);
-
 
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
@@ -105,23 +99,5 @@ public class Main {
         } catch (Exception e) {
             logger.error("handling subscription message failed, error:" + e.getMessage());
         }
-    }
-
-    private static void scheduleClearRedisCache(ScheduledExecutorService executor) {
-        executor.scheduleAtFixedRate(() -> {
-            // 当结束交易时，清除ema cache
-            AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
-            List<AppConfigManager.AppConfig.AlgorithmConfig> algorithms = appConfig.getAlgorithms();
-            for (AppConfigManager.AppConfig.AlgorithmConfig ac : algorithms) {
-                if (Utils.isMarketClose(ac.getSymbol(), ac.getSecType(), Utils.genUsDateTimeNow())) {
-                    // 交易结束期间，清除缓存
-                    logger.warn(String.format("clear ema %s %s %s", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
-                    barSvc.clearEma(ac.getAccountId(), ac.getSymbol(), ac.getSecType());
-                } else {
-                    logger.info(String.format("check scheduling task %s %s %s", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
-                }
-            }
-        }, 0, 5, TimeUnit.MINUTES);
-        logger.info("scheduling clear redis task started");
     }
 }

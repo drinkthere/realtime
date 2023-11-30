@@ -306,8 +306,8 @@ public class BarSvc {
     }
 
 
-    public void clearEma(String accountId, String symbol, String secType) {
-        String redisKey = String.format("%s:%s:%s:EMA", accountId, symbol, secType);
+    public void clearEma(String key) {
+        String redisKey = String.format("%s:EMA", key);
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.del(redisKey);

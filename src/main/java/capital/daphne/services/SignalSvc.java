@@ -57,6 +57,9 @@ public class SignalSvc {
             String secType = ac.getSecType();
 
             String algoKey = accountId + ":" + symbol + ":" + secType;
+            // 删除脏数据
+            clearDirtyData(algoKey);
+
             // 初始化openAlgoProcessor
             AlgorithmProcessor openAlgoProcessor = loadAlgoProcessor("capital.daphne.algorithms", ac.getName(), ac);
             openAlgoProcessorMap.put(algoKey, openAlgoProcessor);
@@ -246,10 +249,9 @@ public class SignalSvc {
         return algoProcessor;
     }
 
-    private void cleaDirtyData(AppConfigManager.AppConfig.AlgorithmConfig ac) {
-        // 清理垃圾数据， 如*LAST_ACTION， *ORDER_LIST等, *POSITION
-        String benchmarkColumnName = ac.getName() + ac.getNumStatsBars();
-        String redisKey = String.format("%s:%s:%s:%s:LAST_ACTION", ac.getAccountId(), ac.getSymbol(), ac.getSecType(), benchmarkColumnName);
-        Utils.clearLastActionInfo(redisKey);
+    private void clearDirtyData(String key) {
+        // 清理EMA信息
+        logger.warn(String.format("clear ema %s", key));
+        barService.clearEma(key);
     }
 }
