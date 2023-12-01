@@ -117,8 +117,9 @@ public class EMA implements AlgorithmProcessor {
 //        System.out.println(row.getString("date_us") + "|" + vwap + "|" + ema + "|" + volatility + "|" + volatilityMultiplier + "|" + buySignalMargin + "|" + sellSignalMargin + "|" + longThreshold + "|" + shortThreshold
 //                + "|" + (vwap <= longThreshold && position < maxPosition) + "|" + (vwap >= shortThreshold && position > -maxPosition));
         Signal signal = null;
-        logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
-                ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));
+        logger.info(String.format("%s|%s|%s|place|vol=%f|volMulti:%f|ema=%f|sm=%f|bsm=%f|ssm=%f|vwap=%f|<=%f %s|>=%f %s|pos=%d|%s",
+                ac.getAccountId(), ac.getSymbol(), ac.getSecType(), volatility, volatilityMultiplier, ema, ac.getSignalMargin(),
+                buySignalMargin, sellSignalMargin, vwap, longThreshold, vwap <= longThreshold, shortThreshold, vwap >= shortThreshold, position, lastAction));
         if (vwap <= longThreshold
                 && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                 && (position < maxPosition) && resetDatetime == null) {

@@ -102,13 +102,7 @@ public class BarSvc {
         List<String> wapList = new ArrayList<>();
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
-            String fromKey = String.format("%s:KEY_MAP", key);
-            String toKey = jedis.get(fromKey);
-            if (toKey == null) {
-                return wapList;
-            }
-
-            String redisKey = String.format("%s:WAP_LIST", toKey);
+            String redisKey = String.format("%s:WAP_LIST", key);
             List<String> storedList = jedis.lrange(redisKey, 0, -1);
             return storedList == null ? wapList : storedList;
         } catch (Exception e) {
