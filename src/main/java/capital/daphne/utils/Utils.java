@@ -28,17 +28,8 @@ public class Utils {
     public static LocalDateTime getMarketOpenTime(String symbol, String secType) {
         LocalDateTime marketOpenTime = null;
         LocalDate today = LocalDate.now();
-        if (secType.equals("STK") || secType.equals("CFD")) {
-            LocalTime stkCfdTime = LocalTime.of(9, 30, 0);
-            marketOpenTime = LocalDateTime.of(today, stkCfdTime);
-        } else if (secType.equals("FUT")) {
-            LocalTime futTime = LocalTime.of(17, 00, 0);
-            marketOpenTime = LocalDateTime.of(today, futTime);
-        } else if (secType.equals("CASH")) {
-            LocalTime futTime = LocalTime.of(17, 15, 0);
-            marketOpenTime = LocalDateTime.of(today, futTime);
-        }
-
+        LocalTime stkCfdTime = LocalTime.of(9, 30, 0);
+        marketOpenTime = LocalDateTime.of(today, stkCfdTime);
         return marketOpenTime;
     }
 

@@ -1,6 +1,7 @@
 package order;
 
 import capital.daphne.AppConfigManager;
+import capital.daphne.JedisManager;
 import capital.daphne.models.Signal;
 import capital.daphne.models.WapCache;
 import capital.daphne.services.SignalSvc;
@@ -22,6 +23,7 @@ public class OrderTest {
 
     @Test
     public void placeOrder() {
+        JedisManager.initializeJedisPool();
         AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
         SignalSvc signalSvc = new SignalSvc(appConfig.getAlgorithms());
         Signal signal = new Signal();
@@ -29,8 +31,8 @@ public class OrderTest {
         signal.setAccountId("DU6380369");
         signal.setSymbol("EUR");
         signal.setSecType("CASH");
-        signal.setWap(1.09552);
-        signal.setQuantity(20000);
+        signal.setWap(1.08785);
+        signal.setQuantity(25000);
         signal.setOrderType(Signal.OrderType.OPEN);
         signal.setBenchmarkColumn("sma18");
 
