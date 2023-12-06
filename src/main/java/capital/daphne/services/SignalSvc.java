@@ -5,6 +5,7 @@ import capital.daphne.DbManager;
 import capital.daphne.algorithms.AlgorithmProcessor;
 import capital.daphne.models.Signal;
 import capital.daphne.utils.Utils;
+import com.ib.client.Types;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class SignalSvc {
     private static final Logger logger = LoggerFactory.getLogger(SignalSvc.class);
@@ -191,6 +193,7 @@ public class SignalSvc {
             requestData.put("quantity", signal.getQuantity());
             requestData.put("orderType", signal.getOrderType());
             requestData.put("benchmarkColumn", signal.getBenchmarkColumn());
+            requestData.put("optionRight", signal.getOptionRight());
 
             // 获取 JSON 字符串形式的请求体
             String requestBody = requestData.toString();
@@ -221,6 +224,65 @@ public class SignalSvc {
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void triggerOptionSignal(Signal signal, AppConfigManager.AppConfig.TriggerOption to) {
+        // 只有OPEN订单会去判断是否要Trigger Option的
+        if (!signal.getOrderType().equals(Signal.OrderType.OPEN)) {
+            return;
+        }
+
+        int[] netOptionNums = positionService.calNetCallPutNum(to);
+        if (netOptionNums == null) {
+            return;
+        }
+
+        int netCalls = netOptionNums[0];
+        int netPuts = netOptionNums[1];
+        int maxNetPosition = to.getMaxNetPosition();
+
+
+        String action = null;
+        String right = null;
+        // signal sell
+        if (signal.getQuantity() < 0) {
+            if (netPuts > -1) {
+                action = "SELL";
+                right = "Put";
+            } else if ((netPuts - netCalls < -1) && netPuts > -maxNetPosition) {
+                action = "SELL";
+                right = "Put";
+            } else if (netPuts <= -1) {
+                action = "BUY";
+                right = "Call";
+            }
+        } else {
+            // signal buy
+            if (netCalls > -1) {
+                action = "SELL";
+                right = "Call";
+            } else if ((netCalls - netPuts < -1) && netCalls > -maxNetPosition) {
+                action = "SELL";
+                right = "Call";
+            } else if (netCalls <= -1) {
+                action = "BUY";
+                right = "Put";
+            }
+        }
+        logger.info("netCalls: " + netCalls + ", netPuts: " + netPuts + ", quantity:" + signal.getQuantity() + ", action: " + action + ", right:" + right);
+        Signal optionSignal = new Signal();
+        optionSignal.setAccountId(to.getAccountId());
+        optionSignal.setUuid(UUID.randomUUID().toString());
+        optionSignal.setSymbol(to.getSymbol());
+        optionSignal.setSecType(Types.SecType.OPT.name());
+        optionSignal.setWap(signal.getWap());
+        int quantity = action.equals("BUY") ? to.getOrderSize() : -to.getOrderSize();
+        optionSignal.setQuantity(quantity);
+        optionSignal.setOrderType(Signal.OrderType.OPEN);
+        optionSignal.setBenchmarkColumn(signal.getBenchmarkColumn());
+        optionSignal.setOptionRight(right);
+        saveSignal(optionSignal);
+        sendSignal(optionSignal);
     }
 
     private AlgorithmProcessor loadAlgoProcessor(String packageName, String className, AppConfigManager.AppConfig.AlgorithmConfig ac) {

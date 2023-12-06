@@ -114,6 +114,7 @@ public class AppConfigManager {
             private CloseAlgorithmConfig closeAlgo;
             private ClosePortfolio closePortfolio;
             private hardLimit hardLimit;
+            private TriggerOption triggerOption;
         }
 
         @Data
@@ -159,6 +160,15 @@ public class AppConfigManager {
         public static class hardLimit {
             private String method;
             private int minDurationWhenReset;
+        }
+
+        @Data
+        @JsonIgnoreProperties(ignoreUnknown = true)
+        public static class TriggerOption {
+            private String accountId;
+            private String symbol;
+            private int maxNetPosition;
+            private int orderSize;
         }
     }
 

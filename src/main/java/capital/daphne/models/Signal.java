@@ -14,6 +14,7 @@ public class Signal {
     private int quantity;
     private OrderType orderType;
     private String benchmarkColumn;
+    private String optionRight = "";
 
     public enum TradeActionType {
         NO_ACTION, BUY, SELL;

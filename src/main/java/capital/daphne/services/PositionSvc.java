@@ -1,10 +1,13 @@
 package capital.daphne.services;
 
+import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+
+import java.util.Set;
 
 public class PositionSvc {
 
@@ -26,5 +29,33 @@ public class PositionSvc {
                     accountId, symbol, secType, e.getMessage()));
         }
         return position;
+    }
+
+    public int[] calNetCallPutNum(AppConfigManager.AppConfig.TriggerOption to) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String optionPositionSetKey = String.format("%s:%s:%s:OPTION_SET", to.getAccountId(), to.getSymbol(), "OPT");
+            Set<String> allOptionPositionKeys = jedis.smembers(optionPositionSetKey);
+            int netCall = 0;
+            int netPut = 0;
+            if (allOptionPositionKeys != null) {
+                for (String positionKeyPrefix : allOptionPositionKeys) {
+                    String[] splits = positionKeyPrefix.split(":");
+                    String right = splits[1];
+                    String positionKey = positionKeyPrefix + ":POSITION";
+                    String pos = jedis.get(positionKey);
+                    if (right.equals("Put")) {
+                        netPut += Integer.parseInt(pos);
+                    } else {
+                        netCall += Integer.parseInt(pos);
+                    }
+
+                }
+            }
+            return new int[]{netCall, netPut};
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 }

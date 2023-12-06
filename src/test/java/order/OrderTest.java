@@ -9,6 +9,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ib.client.Types;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -18,6 +19,7 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 public class OrderTest {
 
@@ -38,6 +40,30 @@ public class OrderTest {
 
         signalSvc.sendSignal(signal);
     }
+
+    @Test
+    public void placeOptionOrder() {
+        JedisManager.initializeJedisPool();
+        AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
+        SignalSvc signalSvc = new SignalSvc(appConfig.getAlgorithms());
+
+        String action = "SELL";
+        String right = "Call";
+        Signal optionSignal = new Signal();
+        optionSignal.setAccountId("DU6380369");
+        optionSignal.setUuid(UUID.randomUUID().toString());
+        optionSignal.setSymbol("SPX");
+        optionSignal.setSecType(Types.SecType.OPT.name());
+        optionSignal.setWap(1);
+        int quantity = action.equals("BUY") ? 1 : -1;
+        optionSignal.setQuantity(quantity);
+        optionSignal.setOrderType(Signal.OrderType.OPEN);
+        optionSignal.setOptionRight(right);
+        optionSignal.setBenchmarkColumn("EMA18");
+
+        signalSvc.sendSignal(optionSignal);
+    }
+
 
     @Test
     public void compareDateTime() {

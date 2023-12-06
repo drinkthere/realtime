@@ -98,6 +98,9 @@ public class Main {
                                     // 加锁，60s过期，订单成交也会解锁
                                     Utils.setInProgress(inProgressKey);
 
+                                    // 额外触发option的下单信号
+                                    signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
+
                                 }
                             } catch (Exception e) {
                                 e.printStackTrace();
