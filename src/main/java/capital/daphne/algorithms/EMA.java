@@ -31,15 +31,15 @@ public class EMA implements AlgorithmProcessor {
         ac = algorithmConfig;
         resetDatetime = null;
         barSvc = new BarSvc();
-
-        // 初始化ema的值
-        List<String> wapList = barSvc.getWapList(ac.getSymbol() + ":" + ac.getSecType());
-        barSvc.initEma(ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType(), wapList, ac.getNumStatsBars());
     }
 
     @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition) {
         try {
+            if (!isEmaReady()) {
+                logger.info(String.format("%s %s %s EMA is not ready", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
+                return null;
+            }
             Table df = preProcess(inputDf);
             Row latestBar = df.row(df.rowCount() - 1);
             return processToGetSignal(latestBar, position, maxPosition);
@@ -130,5 +130,20 @@ public class EMA implements AlgorithmProcessor {
             signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
         }
         return signal;
+    }
+
+    private boolean isEmaReady() {
+        String key = ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType();
+        if (barSvc.getEma(key) > 0.0) {
+            return true;
+        }
+        initEMA(key);
+        return barSvc.getEma(key) > 0.0;
+    }
+
+    private void initEMA(String key) {
+        // 初始化ema的值
+        List<String> wapList = barSvc.getWapList(ac.getSymbol() + ":" + ac.getSecType());
+        barSvc.initEma(key, wapList, ac.getNumStatsBars());
     }
 }
