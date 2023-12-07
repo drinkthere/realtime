@@ -114,6 +114,7 @@ public class AppConfigManager {
             private CloseAlgorithmConfig closeAlgo;
             private ClosePortfolio closePortfolio;
             private hardLimit hardLimit;
+            private boolean onlyTriggerOption;
             private TriggerOption triggerOption;
         }
 

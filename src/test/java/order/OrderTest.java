@@ -14,12 +14,11 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
+import java.util.*;
 
 public class OrderTest {
 
@@ -63,7 +62,6 @@ public class OrderTest {
 
         signalSvc.sendSignal(optionSignal);
     }
-
 
     @Test
     public void compareDateTime() {
@@ -152,7 +150,6 @@ public class OrderTest {
 
     }
 
-
     @Test
     public void testVolatility() {
         double openMarketVolatilityFactor = 1.5;
@@ -188,4 +185,70 @@ public class OrderTest {
         //openMarketVolatilityFactor * (1 - Math.pow(1 - 1 / openMarketVolatilityFactor, Math.pow(passedSeconds /totalSeconds, -k)));
         return openMarketVolatilityFactor * (1 - Math.pow(1 - 1 / openMarketVolatilityFactor, Math.pow((float) passedSeconds / totalSeconds, -k)));
     }
+
+    @Test
+    public void testDte() throws ParseException {
+        List<String> expirations = List.of("20240119", "20231220", "20240419", "20240531", "20240112", "20240430", "20240216", "20240315", "20240930", "20250117", "20231219", "20231218", "20231212", "20231211", "20231214", "20231213", "20240229", "20240328", "20240628", "20240920", "20240105", "20240621", "20260116", "20251219", "20240131", "20241220", "20231208", "20231207", "20231229", "20250321", "20231206", "20250620", "20240531", "20231222");
+        int thresholdDays = 2;
+
+        LocalDate resultDate = calculateResultDate(expirations, thresholdDays);
+        System.out.println(resultDate);
+    }
+
+    /**
+     * 1. 对expirations进行排序，并且过滤expirations，得到 日期 - 当前日期 >=2 的交易日列表，存储到validTradingDates中
+     * 2. 将validTradingDates的第一项作为startDate， 得到最近的周五的日期nearestFriday，如果nearestFriday在list中，就直接返回nearestFriday
+     * 3. 如果nearestFriday不在list中，获取validTradingDates中 < nearestFriday的上一个日期closestDateToNearestFriday, 返回closestDateToNearestFriday
+     */
+    private LocalDate calculateResultDate(List<String> expirations, int thresholdDays) throws ParseException {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
+        LocalDate today = LocalDate.now();
+
+        List<LocalDate> validTradingDates = new ArrayList<>();
+        for (String expiration : expirations) {
+            Date expirationDate = dateFormat.parse(expiration);
+            LocalDate localDate = expirationDate.toInstant().atZone(java.time.ZoneId.systemDefault()).toLocalDate();
+            if (localDate.isAfter(today.plusDays(thresholdDays - 1))) {
+                validTradingDates.add(localDate);
+            }
+        }
+        Collections.sort(validTradingDates);
+
+        LocalDate startDate = validTradingDates.get(0);
+        LocalDate nearestFriday = getNearestFriday(startDate);
+        if (validTradingDates.contains(nearestFriday)) {
+            return nearestFriday;
+        }
+        LocalDate closestDateToNearestFriday = findClosestDate(nearestFriday, validTradingDates);
+        return closestDateToNearestFriday;
+    }
+
+    public LocalDate getNearestFriday(LocalDate date) {
+        // Calculate the current day of the week
+        DayOfWeek dayOfWeek = date.getDayOfWeek();
+
+        // Calculate the days needed to reach the next Friday
+        int daysToAdd = DayOfWeek.FRIDAY.getValue() - dayOfWeek.getValue();
+        if (daysToAdd < 0) {
+            // If the current day is after Friday, add days to reach the next Friday
+            daysToAdd += 7;
+        }
+
+        // Add the calculated days to get the nearest Friday
+        return date.plusDays(daysToAdd);
+    }
+
+    public LocalDate findClosestDate(LocalDate targetDate, List<LocalDate> sortedDateList) {
+        LocalDate closestDate = null;
+
+        for (LocalDate date : sortedDateList) {
+            if (date.isBefore(targetDate)) {
+                closestDate = date;
+            } else {
+                break; // Stop iterating when we reach a date after targetDate
+            }
+        }
+        return closestDate;
+    }
 }
+

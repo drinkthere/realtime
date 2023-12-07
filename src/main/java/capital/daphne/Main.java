@@ -4,6 +4,7 @@ import capital.daphne.models.Signal;
 import capital.daphne.services.BarSvc;
 import capital.daphne.services.SignalSvc;
 import capital.daphne.utils.Utils;
+import com.ib.client.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -89,17 +90,32 @@ public class Main {
                                         return;
                                     }
 
-                                    // 记录信号
-                                    signalSvc.saveSignal(tradeSignal);
+                                    if (!ac.isOnlyTriggerOption()) {
+                                        // 如果不是只发送option数据，这里就把信号标的也发送了
+                                        // 记录信号
+                                        signalSvc.saveSignal(tradeSignal);
 
-                                    // 发送下单信号
-                                    signalSvc.sendSignal(tradeSignal);
+                                        // 发送下单信号
+                                        signalSvc.sendSignal(tradeSignal);
 
-                                    // 加锁，60s过期，订单成交也会解锁
-                                    Utils.setInProgress(inProgressKey);
+                                        // 加锁，60s过期，订单成交也会解锁
+                                        Utils.setInProgress(inProgressKey);
+                                    }
 
-                                    // 额外触发option的下单信号
-                                    signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
+                                    // 如果配置了option，就去下期权单
+                                    AppConfigManager.AppConfig.TriggerOption to = ac.getTriggerOption();
+                                    if (to != null) {
+                                        inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
+                                        inProgress = Utils.isInProgress(inProgressKey);
+                                        if (inProgress) {
+                                            logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                            return;
+                                        }
+
+                                        // 额外触发option的下单信号
+                                        signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
+                                        Utils.setInProgress(inProgressKey);
+                                    }
 
                                 }
                             } catch (Exception e) {
