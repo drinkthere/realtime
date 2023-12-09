@@ -22,10 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class SignalSvc {
     private static final Logger logger = LoggerFactory.getLogger(SignalSvc.class);
@@ -86,6 +83,81 @@ public class SignalSvc {
                 closeHardLimitProcessorMap.put(algoKey, closeHardLimitProcessor);
             }
         }
+    }
+
+    public List<Signal> getGTDTradeSignals(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
+        String accountId = ac.getAccountId();
+        String symbol = ac.getSymbol();
+        String secType = ac.getSecType();
+        String dataKey = Utils.genKey(symbol, secType);
+        String algoKey = ac.getAccountId() + ":" + dataKey;
+
+
+        // 获取bar信息
+        Table df = barService.getDataTable(dataKey, ac, volatility);
+        if (df == null) {
+            return null;
+        }
+
+        // 获取position信息
+        int position = positionService.getPosition(accountId, symbol, secType);
+        int maxPosition = ac.getMaxPortfolioPositions();
+
+        // 判断是否配置了收盘前平仓的逻辑(e.g. 盘前10分钟平仓)
+        AppConfigManager.AppConfig.ClosePortfolio closePortfolio = ac.getClosePortfolio();
+        if (closePortfolio != null) {
+            // 如果配置了，并且当前处于收盘前的平仓阶段, 无论有没有信号，都不会往下进行了
+            if (Utils.isCloseToClosing(symbol, secType, Utils.genUsDateTimeNow(), closePortfolio.getSecondsBeforeMarketClose())) {
+                logger.info(String.format("symbol=%s, secType=%s, algoKey=%s is closing to close",
+                        symbol, secType, algoKey));
+                AlgorithmProcessor closePortfolioProcessor = closePortfolioProcessorMap.get(algoKey);
+                if (closePortfolioProcessor == null) {
+                    logger.error(String.format("symbol=%s, secType=%s, algoKey=%s can't not find closePortfolioProcessor",
+                            symbol, secType, algoKey));
+                    return null;
+                }
+                Signal signal = closePortfolioProcessor.getSignal(df, position, maxPosition);
+                if (signal == null) {
+                    return null;
+                }
+                List<Signal> signals = new ArrayList<>();
+                signals.add(signal);
+                return signals;
+            }
+        }
+
+        // 判断是否要开仓, (open, e.g. SMA)
+        AlgorithmProcessor openAlgoProcessor = openAlgoProcessorMap.get(algoKey);
+        if (openAlgoProcessor != null) {
+            List<Signal> signals = openAlgoProcessor.getGTDSignals(df, position, maxPosition);
+            // 同一个标的的开仓和平仓信号不会在一个bar中处理，优先处理开仓信号，所以这里判断信号有效就先返回了
+            if (signals != null) {
+                return signals;
+            }
+        }
+
+        // 如果有平仓的配置，尝试获取平仓信号 (close, e.g. TrailingStop)
+        AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
+        if (closeAlgoProcessor != null) {
+            Signal signal = closeAlgoProcessor.getSignal(df, position, maxPosition);
+            if (signal != null && signal.isValid()) {
+                List<Signal> signals = new ArrayList<>();
+                signals.add(signal);
+                return signals;
+            }
+        }
+
+        // 如果有满仓减仓配置，尝试获取减仓信号(e.g. 当position达到上线，并且配置了reset参数）
+        AlgorithmProcessor closeHardLimitProcessor = closeHardLimitProcessorMap.get(algoKey);
+        if (closeHardLimitProcessor != null) {
+            Signal signal = closeHardLimitProcessor.getSignal(df, position, maxPosition);
+            if (signal != null && signal.isValid()) {
+                List<Signal> signals = new ArrayList<>();
+                signals.add(signal);
+                return signals;
+            }
+        }
+        return null;
     }
 
     public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
@@ -194,6 +266,8 @@ public class SignalSvc {
             requestData.put("orderType", signal.getOrderType());
             requestData.put("benchmarkColumn", signal.getBenchmarkColumn());
             requestData.put("optionRight", signal.getOptionRight());
+            requestData.put("isGTD", signal.isGtd());
+            requestData.put("gtdSec", signal.getGtdSec());
 
             // 获取 JSON 字符串形式的请求体
             String requestBody = requestData.toString();
@@ -271,6 +345,7 @@ public class SignalSvc {
         }
         logger.info("netCalls: " + netCalls + ", netPuts: " + netPuts + ", quantity:" + signal.getQuantity() + ", action: " + action + ", right:" + right);
         Signal optionSignal = new Signal();
+        optionSignal.setValid(true);
         optionSignal.setAccountId(to.getAccountId());
         optionSignal.setUuid(UUID.randomUUID().toString());
         optionSignal.setSymbol(to.getSymbol());

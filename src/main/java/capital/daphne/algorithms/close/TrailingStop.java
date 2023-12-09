@@ -30,6 +30,11 @@ public class TrailingStop implements AlgorithmProcessor {
     }
 
     @Override
+    public List<Signal> getGTDSignals(Table df, int position, int maxPosition) {
+        return null;
+    }
+
+    @Override
     public Signal getSignal(Table df, int position, int maxPosition) {
         if (position == 0) {
             return null;
@@ -52,10 +57,9 @@ public class TrailingStop implements AlgorithmProcessor {
             if (orderList == null) {
                 return null;
             }
-
             String maxMinKey = String.format("%s:%s:MAX_MIN_WAP", symbol, secType);
             String storedWapMaxMinJson = jedis.get(maxMinKey);
-            logger.debug("redis|" + maxMinKey + "|" + storedWapMaxMinJson);
+            logger.info("redis|" + maxMinKey + "|" + storedWapMaxMinJson);
             if (storedWapMaxMinJson == null) {
                 return null;
             }

@@ -14,6 +14,7 @@ import tech.tablesaw.api.Table;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 public class EMA implements AlgorithmProcessor {
@@ -31,6 +32,23 @@ public class EMA implements AlgorithmProcessor {
         ac = algorithmConfig;
         resetDatetime = null;
         barSvc = new BarSvc();
+    }
+
+    @Override
+    public List<Signal> getGTDSignals(Table inputDf, int position, int maxPosition) {
+        try {
+            if (!isEmaReady()) {
+                logger.info(String.format("%s %s %s EMA is not ready", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
+                return null;
+            }
+            Table df = preProcess(inputDf);
+            Row latestBar = df.row(df.rowCount() - 1);
+            return processToGetGTDSignals(latestBar, position, maxPosition);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error("save signal failed, error:" + e.getMessage());
+            return null;
+        }
     }
 
     @Override
@@ -130,6 +148,32 @@ public class EMA implements AlgorithmProcessor {
             signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
         }
         return signal;
+    }
+
+    public List<Signal> processToGetGTDSignals(Row row, int position, int maxPosition) {
+        if (Math.abs(position) >= maxPosition) {
+            logger.info(String.format("position=%d, maxPosition=%d, won't place order now", position, maxPosition));
+            return null;
+        }
+
+        double volatility = row.getDouble("volatility");
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac, volatility);
+        double[] signalMargins = Utils.calculateSignalMargin(ac.getSecType(), ac.getSignalMargin(), ac.getPositionSignalMarginOffset(), volatilityMultiplier, position);
+        double sellSignalMargin = signalMargins[1];
+        double buySignalMargin = signalMargins[0];
+        double ema = row.getDouble(benchmarkColumnName);
+        double longThreshold = ema * (1 - buySignalMargin);
+        double shortThreshold = ema * (1 + sellSignalMargin);
+
+        logger.info(String.format("%s|%s|%s|gtd|v=%f|vm=%f|bsm=%f|ssm=%f|ema=%f|lt=%s|st=%s",
+                ac.getAccountId(), ac.getSymbol(), ac.getSecType(), volatility, volatilityMultiplier,
+                buySignalMargin, sellSignalMargin, ema, longThreshold, shortThreshold));
+        Signal buySignal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), longThreshold, ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
+        Signal sellSignal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), shortThreshold, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
+        List<Signal> signals = new ArrayList<>(2);
+        signals.add(buySignal);
+        signals.add(sellSignal);
+        return signals;
     }
 
     private boolean isEmaReady() {

@@ -113,6 +113,10 @@ public class AppConfigManager {
 
             private CloseAlgorithmConfig closeAlgo;
             private ClosePortfolio closePortfolio;
+            @JsonIgnoreProperties(ignoreUnknown = true)
+            private int delayMs;
+            @JsonIgnoreProperties(ignoreUnknown = true)
+            private int gtdCancelAfterSec;
             private hardLimit hardLimit;
             private boolean onlyTriggerOption;
             private TriggerOption triggerOption;

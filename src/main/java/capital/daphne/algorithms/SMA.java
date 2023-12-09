@@ -12,6 +12,7 @@ import tech.tablesaw.api.Table;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class SMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SMA.class);
@@ -25,6 +26,11 @@ public class SMA implements AlgorithmProcessor {
     public SMA(AppConfigManager.AppConfig.AlgorithmConfig algorithmConfig) {
         ac = algorithmConfig;
         resetDatetime = null;
+    }
+
+    @Override
+    public List<Signal> getGTDSignals(Table inputDf, int position, int maxPosition) {
+        return null;
     }
 
     @Override

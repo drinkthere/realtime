@@ -30,13 +30,13 @@ public class OrderTest {
         Signal signal = new Signal();
         signal.setValid(true);
         signal.setAccountId("DU6380369");
-        signal.setSymbol("EUR");
+        signal.setSymbol("AUD");
         signal.setSecType("CASH");
-        signal.setWap(1.08785);
+        signal.setWap(0.66);
         signal.setQuantity(25000);
         signal.setOrderType(Signal.OrderType.OPEN);
         signal.setBenchmarkColumn("sma18");
-
+        System.out.println(signal);
         signalSvc.sendSignal(signal);
     }
 

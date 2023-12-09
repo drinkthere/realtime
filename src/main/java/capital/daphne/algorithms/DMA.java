@@ -14,6 +14,7 @@ import tech.tablesaw.api.Table;
 import java.lang.reflect.Constructor;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class DMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(DMA.class);
@@ -27,6 +28,11 @@ public class DMA implements AlgorithmProcessor {
         ac = algorithmConfig;
         dp = algorithmConfig.getDmaParams();
         benchmarkColumnName = "dma";
+    }
+
+    @Override
+    public List<Signal> getGTDSignals(Table inputDf, int position, int maxPosition) {
+        return null;
     }
 
     @Override

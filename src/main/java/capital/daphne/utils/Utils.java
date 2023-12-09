@@ -327,7 +327,7 @@ public class Utils {
         try {
             String redisKey = accountId + ":" + symbol + ":" + secType + ":ORDER_LIST";
             String storedOrderListJson = jedis.get(redisKey);
-            logger.debug("redis|" + redisKey + "|" + storedOrderListJson);
+            logger.info("redis|" + redisKey + "|" + storedOrderListJson);
             if (storedOrderListJson == null) {
                 return null;
             }

@@ -31,6 +31,18 @@ public class PositionSvc {
         return position;
     }
 
+    public void updatePosition(String accountId, String symbol, String secType, int position) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String redisKey = accountId + ":" + symbol + ":" + secType + ":POSITION";
+            jedis.set(redisKey, String.valueOf(position));
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(String.format("update position in redis failed, accountId=%s, symbol=%s, secType=%s error=%s",
+                    accountId, symbol, secType, e.getMessage()));
+        }
+    }
+
     public int[] calNetCallPutNum(AppConfigManager.AppConfig.TriggerOption to) {
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {

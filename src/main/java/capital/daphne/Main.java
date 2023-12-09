@@ -1,9 +1,14 @@
 package capital.daphne;
 
+import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
+import capital.daphne.models.WapCache;
 import capital.daphne.services.BarSvc;
+import capital.daphne.services.PositionSvc;
 import capital.daphne.services.SignalSvc;
 import capital.daphne.utils.Utils;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ib.client.Types;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +16,11 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPubSub;
 
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -20,11 +30,13 @@ public class Main {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
 
     private static BarSvc barSvc;
+    private static PositionSvc positionSvc;
 
     public static void main(String[] args) {
         AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
 
         barSvc = new BarSvc();
+        positionSvc = new PositionSvc();
 
         logger.info("initialize database handler: mysql");
         DbManager.initializeDbConnectionPool();
@@ -68,55 +80,126 @@ public class Main {
 
                                 // 计算当前标的的volatility
                                 double volatility = barSvc.calVolatility(ac, wapList);
-
-                                // 获取信号
-                                Signal tradeSignal = signalSvc.getTradeSignal(ac, volatility);
-                                if (tradeSignal != null && tradeSignal.isValid()) {
-                                    // 之所以把判断条件放在这里，是因为有些交易的benchmark（如EMA）对历史数据是有依赖的
-                                    // 因此无论如何都调用一下getTradingSingal，把对应的benchmark值给计算出来
-
-                                    // 当前股票已经有交易在进行
-                                    String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
-                                    boolean inProgress = Utils.isInProgress(inProgressKey);
-                                    if (inProgress) {
-                                        logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                int gtdCancelAfterSec = ac.getGtdCancelAfterSec();
+                                if (gtdCancelAfterSec > 0) {
+                                    // 配置了这一项，默认就走gtd
+                                    List<Signal> tradeSignals = signalSvc.getGTDTradeSignals(ac, volatility);
+                                    if (tradeSignals == null) {
                                         return;
                                     }
 
-                                    // 当前是否是可交易时间
-                                    boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
-                                    if (!isTradingNow) {
-                                        logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
-                                        return;
-                                    }
+                                    if (tradeSignals.size() > 1) {
+                                        String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                        boolean inProgress = Utils.isInProgress(inProgressKey);
+                                        if (inProgress) {
+                                            logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                            return;
+                                        }
+                                        if (ac.getDelayMs() > 0) {
+                                            Thread.sleep(ac.getDelayMs());
+                                        }
+                                        for (Signal tradeSignal : tradeSignals) {
+                                            // 当前是否是可交易时间
+                                            boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
+                                            if (!isTradingNow) {
+                                                logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
+                                                return;
+                                            }
+                                            tradeSignal.setGtd(true);
+                                            tradeSignal.setGtdSec(gtdCancelAfterSec);
+                                            signalSvc.saveSignal(tradeSignal);
 
-                                    if (!ac.isOnlyTriggerOption()) {
-                                        // 如果不是只发送option数据，这里就把信号标的也发送了
-                                        // 记录信号
-                                        signalSvc.saveSignal(tradeSignal);
-
-                                        // 发送下单信号
-                                        signalSvc.sendSignal(tradeSignal);
-
+                                            // 发送下单信号
+                                            signalSvc.sendSignal(tradeSignal);
+                                        }
                                         // 加锁，60s过期，订单成交也会解锁
                                         Utils.setInProgress(inProgressKey);
-                                    }
+                                    } else {
+                                        // close 相关，暂时不delay
+                                        Signal tradeSignal = tradeSignals.get(0);
+                                        if (tradeSignal.isValid()) {
+                                            String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                            boolean inProgress = Utils.isInProgress(inProgressKey);
+                                            if (inProgress) {
+                                                logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                                return;
+                                            }
+                                            // 当前是否是可交易时间
+                                            boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
+                                            if (!isTradingNow) {
+                                                logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
+                                                return;
+                                            }
+                                            signalSvc.saveSignal(tradeSignal);
 
-                                    // 如果配置了option，就去下期权单
-                                    AppConfigManager.AppConfig.TriggerOption to = ac.getTriggerOption();
-                                    if (to != null) {
-                                        inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
-                                        inProgress = Utils.isInProgress(inProgressKey);
+                                            // 发送下单信号
+                                            signalSvc.sendSignal(tradeSignal);
+
+                                            // 加锁，60s过期，订单成交也会解锁
+                                            Utils.setInProgress(inProgressKey);
+                                        }
+
+                                    }
+                                } else {
+                                    // 获取信号
+                                    Signal tradeSignal = signalSvc.getTradeSignal(ac, volatility);
+                                    if (tradeSignal != null && tradeSignal.isValid()) {
+                                        // 之所以把判断条件放在这里，是因为有些交易的benchmark（如EMA）对历史数据是有依赖的
+                                        // 因此无论如何都调用一下getTradingSingal，把对应的benchmark值给计算出来
+
+                                        // 当前股票已经有交易在进行
+                                        String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                        boolean inProgress = Utils.isInProgress(inProgressKey);
                                         if (inProgress) {
                                             logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
                                             return;
                                         }
 
-                                        // 额外触发option的下单信号
-                                        signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
-                                        Utils.setInProgress(inProgressKey);
-                                    }
+                                        // 当前是否是可交易时间
+                                        boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
+                                        if (!isTradingNow) {
+                                            logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
+                                            return;
+                                        }
 
+                                        if (!ac.isOnlyTriggerOption()) {
+                                            // 如果不是只发送option数据，这里就把信号标的也发送了
+                                            // 记录信号
+                                            signalSvc.saveSignal(tradeSignal);
+
+                                            // 发送下单信号
+                                            signalSvc.sendSignal(tradeSignal);
+
+                                            // 加锁，60s过期，订单成交也会解锁
+                                            Utils.setInProgress(inProgressKey);
+                                        } else {
+                                            // 不真实发送信号，但是要更新下仓位，便于后续信号判断
+                                            String accountId = tradeSignal.getAccountId();
+
+                                            int quantity = tradeSignal.getQuantity();
+                                            String orderType = tradeSignal.getOrderType().name();
+                                            String strategy = tradeSignal.getBenchmarkColumn();
+                                            updateOrdersInRedis(accountId, symbol, secType, 0, quantity, orderType, strategy);
+                                            updateWapMaxMinInRedis(accountId, symbol, secType, orderType, tradeSignal.getWap());
+                                            positionSvc.updatePosition(tradeSignal.getAccountId(), tradeSignal.getSymbol(), tradeSignal.getSecType(), quantity);
+                                        }
+
+                                        // 如果配置了option，就去下期权单
+                                        AppConfigManager.AppConfig.TriggerOption to = ac.getTriggerOption();
+                                        if (to != null) {
+                                            inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
+                                            inProgress = Utils.isInProgress(inProgressKey);
+                                            if (inProgress) {
+                                                logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                                return;
+                                            }
+
+                                            // 额外触发option的下单信号
+                                            signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
+                                            Utils.setInProgress(inProgressKey);
+                                        }
+
+                                    }
                                 }
                             } catch (Exception e) {
                                 e.printStackTrace();
@@ -128,6 +211,69 @@ public class Main {
             }, "barUpdateChannel");
         } catch (Exception e) {
             logger.error("handling subscription message failed, error:" + e.getMessage());
+        }
+    }
+
+    private static void updateOrdersInRedis(String accountId, String symbol, String secType, int orderId, int quantity, String orderType, String strategy) {
+        String lastActionInfoKey = String.format("%s:%s:%s:%s:LAST_ACTION", accountId, symbol, secType, strategy);
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String redisKey = String.format("%s:%s:%s:ORDER_LIST", accountId, symbol, secType);
+            if (orderType.equals("CLOSE")) {
+                // close信号来时，清除队列中的数据
+                jedis.del(redisKey);
+                jedis.del(lastActionInfoKey);
+            } else if (orderType.equals("OPEN")) {
+                // open信号来时，添加数据进入队列
+                List<OrderInfo> orderList = new ArrayList<>();
+                String storedOrderListJson = jedis.get(redisKey);
+                if (storedOrderListJson != null) {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    orderList = objectMapper.readValue(storedOrderListJson, new TypeReference<>() {
+                    });
+                }
+                OrderInfo orderInfo = new OrderInfo();
+                orderInfo.setOrderId(orderId);
+                orderInfo.setQuantity(quantity);
+                orderInfo.setDateTime(LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS).toString());
+                orderList.add(orderInfo);
+                ObjectMapper objectMapper = new ObjectMapper();
+                String orderListJson = objectMapper.writeValueAsString(orderList);
+                jedis.set(redisKey, orderListJson);
+                logger.warn(redisKey + " update order in redis successfully.");
+
+                // 更新策略的lastActionInfo，realtime模块需要这个信息来判断是否给出信号
+                String action = quantity > 0 ? "BUY" : "SELL";
+
+                ZonedDateTime usEasternTime = ZonedDateTime.now()
+                        .withZoneSameInstant(java.time.ZoneId.of("US/Eastern"));
+                DateTimeFormatter usFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ssXXX");
+                String now = usEasternTime.format(usFormatter);
+                jedis.set(lastActionInfoKey, action + "|" + now);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(String.format("%s %s %s %s update position in redis failed", accountId, symbol, secType, strategy));
+        }
+    }
+
+    private static void updateWapMaxMinInRedis(String accountId, String symbol, String secType, String orderType, double filledPrice) {
+        if (orderType.equals("CLOSE")) {
+            return;
+        }
+        // 只有OPEN订单重置wapMaxMin，用于计算trailing stop
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            WapCache wapMaxMin = new WapCache();
+            wapMaxMin.setMinWap(filledPrice);
+            wapMaxMin.setMaxWap(filledPrice);
+            ObjectMapper maxMinMapper = new ObjectMapper();
+            String wapMaxMinJson = maxMinMapper.writeValueAsString(wapMaxMin);
+            String maxMinKey = String.format("%s:%s:MAX_MIN_WAP", symbol, secType);
+            jedis.set(maxMinKey, wapMaxMinJson);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(String.format("%s %s %s %s update wap max min in redis failed", accountId, symbol, secType, filledPrice));
         }
     }
 }

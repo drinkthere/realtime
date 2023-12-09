@@ -39,6 +39,12 @@ public class MACDSingal implements AlgorithmProcessor {
         benchmarkColumn = "MACDLine";
     }
 
+    @Override
+    public List<Signal> getGTDSignals(Table df, int position, int maxPosition) {
+        return null;
+    }
+
+    @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition) {
         Table df = generateBenchmarkColumn(inputDf);
         Row row = df.row(df.rowCount() - 1);
