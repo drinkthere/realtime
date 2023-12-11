@@ -86,7 +86,7 @@ public class SignalSvc {
         }
     }
 
-    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
+    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility, double bidPrice, double askPrice) {
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
         String secType = ac.getSecType();
@@ -117,14 +117,14 @@ public class SignalSvc {
                             symbol, secType, algoKey));
                     return null;
                 }
-                return closePortfolioProcessor.getSignal(df, position, maxPosition);
+                return closePortfolioProcessor.getSignal(df, position, maxPosition, bidPrice, askPrice);
             }
         }
 
         // 判断是否要开仓, (open, e.g. SMA)
         AlgorithmProcessor openAlgoProcessor = openAlgoProcessorMap.get(algoKey);
         if (openAlgoProcessor != null) {
-            Signal signal = openAlgoProcessor.getSignal(df, position, maxPosition);
+            Signal signal = openAlgoProcessor.getSignal(df, position, maxPosition, bidPrice, askPrice);
             // 同一个标的的开仓和平仓信号不会在一个bar中处理，优先处理开仓信号，所以这里判断信号有效就先返回了
             if (signal != null && signal.isValid()) {
                 return signal;
@@ -134,7 +134,7 @@ public class SignalSvc {
         // 如果有平仓的配置，尝试获取平仓信号 (close, e.g. TrailingStop)
         AlgorithmProcessor closeAlgoProcessor = closeAlgoProcessorMap.get(algoKey);
         if (closeAlgoProcessor != null) {
-            Signal signal = closeAlgoProcessor.getSignal(df, position, maxPosition);
+            Signal signal = closeAlgoProcessor.getSignal(df, position, maxPosition, bidPrice, askPrice);
             if (signal != null && signal.isValid()) {
                 return signal;
             }
@@ -143,7 +143,7 @@ public class SignalSvc {
         // 如果有满仓减仓配置，尝试获取减仓信号(e.g. 当position达到上线，并且配置了reset参数）
         AlgorithmProcessor closeHardLimitProcessor = closeHardLimitProcessorMap.get(algoKey);
         if (closeHardLimitProcessor != null) {
-            return closeHardLimitProcessor.getSignal(df, position, maxPosition);
+            return closeHardLimitProcessor.getSignal(df, position, maxPosition, bidPrice, askPrice);
         }
         return null;
     }

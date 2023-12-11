@@ -8,6 +8,7 @@ import capital.daphne.models.Signal;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
+import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 import testmodels.Bar;
 import testmodels.Sig;
@@ -69,9 +70,10 @@ public class DMATest {
 
             // 生成dataframe
             Table df = TestUtils.getTable(barList, maxBarListSize);
-
+            Row row = df.row(df.rowCount() - 1);
+            
             // 获取信号
-            Signal signal = dma.getSignal(df, position, maxPosition);
+            Signal signal = dma.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
             if (signal != null && signal.isValid()) {
                 position += signal.getQuantity();
                 Sig sig = new Sig();

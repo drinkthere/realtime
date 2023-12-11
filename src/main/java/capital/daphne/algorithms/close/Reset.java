@@ -25,7 +25,7 @@ public class Reset implements AlgorithmProcessor {
     }
 
     @Override
-    public Signal getSignal(Table df, int position, int maxPosition) {
+    public Signal getSignal(Table df, int position, int maxPosition, double bidPrice, double askPrice) {
         if (position == 0) {
             return null;
         }

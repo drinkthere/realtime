@@ -114,7 +114,7 @@ public class EMATest {
             // 生成dataframe
             Table df = getTable(barList);
             Row row = df.row(df.rowCount() - 1);
-            Signal signal = ema.getSignal(df, position, maxPosition);
+            Signal signal = ema.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
 
             String nowDateTime = row.getString("date_us");
             LocalDateTime localDateTime = Utils.genUsDateTime(nowDateTime, "yyyy-MM-dd HH:mm:ssXXX");
@@ -139,7 +139,7 @@ public class EMATest {
                 wapMaxMin.setMinWap(signal.getWap());
             } else {
                 if (ac.getCloseAlgo() != null && df.rowCount() == maxBarListSize) {
-                    signal = closeProcessor.getSignal(df, position, maxPosition);
+                    signal = closeProcessor.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
                     if (signal != null && signal.isValid()) {
                         position += signal.getQuantity();
                         Sig sig = new Sig();
@@ -229,10 +229,10 @@ public class EMATest {
             dataframe.doubleColumn("volatility").append(barInfo.getVolatility());
         }
         DoubleColumn prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
-        dataframe.removeColumns("vwap");
-        dataframe.addColumns(prevVWapColumn.setName("vwap"));
-
-        prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
+//        dataframe.removeColumns("vwap");
+//        dataframe.addColumns(prevVWapColumn.setName("vwap"));
+//
+//        prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
         dataframe.addColumns(prevVWapColumn.setName("prev_vwap"));
         return dataframe;
     }
@@ -282,6 +282,12 @@ public class EMATest {
             return true;
         }
         return false;
+    }
+
+    @Test
+    public void testGenMultiplier() {
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(0.2, 200, -250, 0.001213);
+        System.out.println(volatilityMultiplier);
     }
 
 }

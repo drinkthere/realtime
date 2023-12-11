@@ -12,6 +12,7 @@ import tech.tablesaw.api.Table;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 public class SMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(SMA.class);
@@ -28,14 +29,14 @@ public class SMA implements AlgorithmProcessor {
     }
 
     @Override
-    public Signal getSignal(Table inputDf, int position, int maxPosition) {
+    public Signal getSignal(Table inputDf, int position, int maxPosition, double bidPrice, double askPrice) {
         try {
             // 预处理dataframe，准备好对应的数据字段
             Table df = preProcess(inputDf);
 
             // 处理数据，获取并返回信号
             Row latestBar = df.row(df.rowCount() - 1);
-            return processToGetSignal(latestBar, position, maxPosition);
+            return processToGetSignal(latestBar, position, maxPosition, bidPrice, askPrice);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("save signal failed, error:" + e.getMessage());
@@ -47,17 +48,18 @@ public class SMA implements AlgorithmProcessor {
         // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
         int numStatsBars = ac.getNumStatsBars();
         benchmarkColumnName = ac.getName() + numStatsBars;
-        DoubleColumn vwap = df.doubleColumn("prev_vwap");
+        // 回测用prev_vwap， 实盘用vwap
+        DoubleColumn vwap = df.doubleColumn("vwap");
         DoubleColumn sma = vwap.rolling(numStatsBars).mean();
         sma.setName(benchmarkColumnName);
         df.addColumns(sma);
         return df;
     }
 
-    private Signal processToGetSignal(Row row, int position, int maxPosition) {
+    private Signal processToGetSignal(Row row, int position, int maxPosition, double bidPrice, double askPrice) {
         double volatility = row.getDouble("volatility");
 
-        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac, volatility);
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac.getVolatilityA(), ac.getVolatilityB(), ac.getVolatilityC(), volatility);
         LocalDateTime lastBuyDateTime = null;
         LocalDateTime lastSellDateTime = null;
 
@@ -72,7 +74,8 @@ public class SMA implements AlgorithmProcessor {
         }
 
         LocalDateTime datetime = Utils.genUsDateTime(row.getString("date_us"), "yyyy-MM-dd HH:mm:ssXXX");
-
+        LocalTime time = datetime.toLocalTime();
+        
         double[] signalMargins = Utils.calculateSignalMargin(ac.getSecType(), ac.getSignalMargin(), ac.getPositionSignalMarginOffset(), volatilityMultiplier, position);
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];
@@ -95,15 +98,14 @@ public class SMA implements AlgorithmProcessor {
         double shortThreshold = sma * (1 + sellSignalMargin);
 
         Signal signal = null;
-//        System.out.println(row.getString("date_us") + "|" + vwap + "|" + sma + "|" + volatility + "|" + volatilityMultiplier + "|" + buySignalMargin + "|" + sellSignalMargin + "|" + longThreshold + "|" + shortThreshold
-//                + "|" + (vwap <= longThreshold && position < maxPosition) + "|" + (vwap >= shortThreshold && position > -maxPosition));
-        logger.info(String.format("%s|%s|%s|place|%f|<=%f|>=%f|%s|%s|%d|%s",
-                ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, longThreshold, shortThreshold, vwap <= longThreshold, vwap >= shortThreshold, position, lastAction));
-        if (vwap <= longThreshold
+        logger.info(String.format("%|%s|%s|%s|place|vol=%f|volMulti:%f|sma=%f|sm=%f|bsm=%f|ssm=%f|vwap=%f|ask=%f|<=%f %s|bid=%f|>=%f %s|pos=%d|%s",
+                time, ac.getAccountId(), ac.getSymbol(), ac.getSecType(), volatility, volatilityMultiplier, sma, ac.getSignalMargin(),
+                buySignalMargin, sellSignalMargin, vwap, askPrice, longThreshold, askPrice <= longThreshold, bidPrice, shortThreshold, bidPrice >= shortThreshold, position, lastAction));
+        if (askPrice <= longThreshold
                 && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                 && (position < maxPosition) && resetDatetime == null) {
             signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
-        } else if (vwap >= shortThreshold
+        } else if (bidPrice >= shortThreshold
                 && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                 && (position > -maxPosition) && resetDatetime == null) {
             signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);

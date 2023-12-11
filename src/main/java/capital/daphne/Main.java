@@ -4,6 +4,7 @@ import capital.daphne.models.Signal;
 import capital.daphne.services.BarSvc;
 import capital.daphne.services.SignalSvc;
 import capital.daphne.utils.Utils;
+import com.ib.client.TickType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -57,6 +58,16 @@ public class Main {
                     // 获取wapList
                     List<String> wapList = barSvc.getWapList(Utils.genKey(symbol, secType));
 
+                    // 获取bid ask price
+                    String key = Utils.genKey(symbol, secType);
+                    double bidPrice = Utils.getTickerPrice(key, TickType.BID);
+                    double askPrice = Utils.getTickerPrice(key, TickType.ASK);
+                    if (bidPrice == 0.0 || askPrice == 0.0) {
+                        logger.error(String.format("Bid price or ask price is invalid, symbol=%s, bidPrice=%f, askPrice=%f", symbol, bidPrice, askPrice));
+                        return;
+                    }
+                    
+
                     // 根据matchedAlgorithms，开启对应的线程来并行处理
                     int numThreads = matchedAlgorithms.size();
                     ExecutorService executor = Executors.newFixedThreadPool(numThreads);
@@ -69,7 +80,7 @@ public class Main {
                                 double volatility = barSvc.calVolatility(ac, wapList);
 
                                 // 获取信号
-                                Signal tradeSignal = signalSvc.getTradeSignal(ac, volatility);
+                                Signal tradeSignal = signalSvc.getTradeSignal(ac, volatility, bidPrice, askPrice);
                                 if (tradeSignal != null && tradeSignal.isValid()) {
                                     // 之所以把判断条件放在这里，是因为有些交易的benchmark（如EMA）对历史数据是有依赖的
                                     // 因此无论如何都调用一下getTradingSingal，把对应的benchmark值给计算出来

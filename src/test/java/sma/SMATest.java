@@ -110,7 +110,7 @@ public class SMATest {
             // 生成dataframe
             Table df = getTable(barList);
             Row row = df.row(df.rowCount() - 1);
-            Signal signal = ema.getSignal(df, position, maxPosition);
+            Signal signal = ema.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
             if (signal != null && signal.isValid()) {
                 position += signal.getQuantity();
                 Sig sig = new Sig();
@@ -126,7 +126,7 @@ public class SMATest {
                 wapMaxMin.setMinWap(signal.getWap());
             } else {
                 if (ac.getCloseAlgo() != null && df.rowCount() == maxBarListSize) {
-                    signal = closeProcessor.getSignal(df, position, maxPosition);
+                    signal = closeProcessor.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
                     if (signal != null && signal.isValid()) {
                         position += signal.getQuantity();
                         Sig sig = new Sig();
