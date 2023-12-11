@@ -48,7 +48,7 @@ public class SMA implements AlgorithmProcessor {
         // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
         int numStatsBars = ac.getNumStatsBars();
         benchmarkColumnName = ac.getName() + numStatsBars;
-        // 回测用prev_vwap， 实盘用vwap
+        // 实盘用vwap
         DoubleColumn vwap = df.doubleColumn("vwap");
         DoubleColumn sma = vwap.rolling(numStatsBars).mean();
         sma.setName(benchmarkColumnName);
@@ -75,7 +75,7 @@ public class SMA implements AlgorithmProcessor {
 
         LocalDateTime datetime = Utils.genUsDateTime(row.getString("date_us"), "yyyy-MM-dd HH:mm:ssXXX");
         LocalTime time = datetime.toLocalTime();
-        
+
         double[] signalMargins = Utils.calculateSignalMargin(ac.getSecType(), ac.getSignalMargin(), ac.getPositionSignalMarginOffset(), volatilityMultiplier, position);
         double buySignalMargin = signalMargins[0];
         double sellSignalMargin = signalMargins[1];

@@ -70,7 +70,7 @@ public class EMATest {
         wapMaxMin = new WapCache();
 
         // 读取csv文件，加载List<Bar>
-        List<Bar> bars = TestUtils.loadCsv(currentDirectory + "/src/test/java/sma/SPY_20231208.csv");
+        List<Bar> bars = TestUtils.loadCsv(currentDirectory + "/src/test/java/sma/IWM_20231208.csv");
 
         // 生成我们需要的barList
         List<BarInfo> barList = new ArrayList<>();
@@ -109,12 +109,13 @@ public class EMATest {
             }
 
             // 初始化ema，内部判断，只进行一次
-            barsvc.initEma(ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType(), wapList, ac.getNumStatsBars());
+            List<String> subList = wapList.subList(0, wapList.size() - 1);
+            barsvc.initEma(ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType(), subList, ac.getNumStatsBars());
 
             // 生成dataframe
             Table df = getTable(barList);
             Row row = df.row(df.rowCount() - 1);
-            Signal signal = ema.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
+            Signal signal = ema.getSignal(df, position, maxPosition, row.getDouble("latest_vwap"), row.getDouble("latest_vwap"));
 
             String nowDateTime = row.getString("date_us");
             LocalDateTime localDateTime = Utils.genUsDateTime(nowDateTime, "yyyy-MM-dd HH:mm:ssXXX");
@@ -135,11 +136,12 @@ public class EMATest {
 
                 // update order list in redis
                 updateOrdersInRedis(i, signal.getQuantity(), "OPEN", row);
-                wapMaxMin.setMaxWap(signal.getWap());
-                wapMaxMin.setMinWap(signal.getWap());
+                wapMaxMin.setMaxWap(row.getDouble("latest_vwap"));
+                wapMaxMin.setMinWap(row.getDouble("latest_vwap"));
+                TestUtils.updateWapMaxMinInRedis(key, wapMaxMin);
             } else {
                 if (ac.getCloseAlgo() != null && df.rowCount() == maxBarListSize) {
-                    signal = closeProcessor.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
+                    signal = closeProcessor.getSignal(df, position, maxPosition, row.getDouble("latest_vwap"), row.getDouble("latest_vwap"));
                     if (signal != null && signal.isValid()) {
                         position += signal.getQuantity();
                         Sig sig = new Sig();
@@ -173,7 +175,7 @@ public class EMATest {
         int historyDurationSeconds = 7200;
         // 只保留指定数量的wapList
         int maxKeepNumOfWap = historyDurationSeconds / 5;
-        if (wapList.size() >= maxKeepNumOfWap) {
+        if (wapList.size() >= maxKeepNumOfWap + 1) {
             // 如果长度超过maxLength，从队头移除一项
             wapList.remove(0);
         }
@@ -228,11 +230,12 @@ public class EMATest {
             dataframe.doubleColumn("vwap").append(barInfo.getVwap());
             dataframe.doubleColumn("volatility").append(barInfo.getVolatility());
         }
+
         DoubleColumn prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
-//        dataframe.removeColumns("vwap");
-//        dataframe.addColumns(prevVWapColumn.setName("vwap"));
-//
-//        prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
+        dataframe.doubleColumn("vwap").setName("latest_vwap");
+        dataframe.addColumns(prevVWapColumn.setName("vwap"));
+
+        prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
         dataframe.addColumns(prevVWapColumn.setName("prev_vwap"));
         return dataframe;
     }
@@ -284,10 +287,24 @@ public class EMATest {
         return false;
     }
 
+    public void updateWapMaxMinInRedis(String key, WapCache wapMaxMin) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            String wapMaxMinJson = objectMapper.writeValueAsString(wapMaxMin);
+            String redisKey = String.format("%s:MAX_MIN_WAP", key);
+            jedis.set(redisKey, wapMaxMinJson);
+            logger.debug(String.format("wapMaxMin in Redis updated, key=%s, value=%s", redisKey, wapMaxMinJson));
+        } catch (Exception e) {
+            logger.error("update wap max min update failed, error:" + e.getMessage());
+        }
+    }
+
     @Test
     public void testGenMultiplier() {
         double volatilityMultiplier = Utils.calToVolatilityMultiplier(0.2, 200, -250, 0.001213);
         System.out.println(volatilityMultiplier);
     }
+
 
 }

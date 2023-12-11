@@ -16,8 +16,6 @@ import redis.clients.jedis.JedisPool;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class TrailingStop implements AlgorithmProcessor {
@@ -89,12 +87,12 @@ public class TrailingStop implements AlgorithmProcessor {
             double vwap = row.getDouble("vwap");
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
-                logger.warn(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|" +
+                logger.warn(String.format("%s|TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|" +
                                 "position=%d|vwap=%f|bid=%f|ask=%f|volatility=%f|volatilityMultiplier=%f|origThreshold=%f|threshold=%f|" +
                                 "maxWap=%f|minWap=%f|bm=%b|sbm=%b",
-                        accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(),
+                        now, accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(),
                         position, vwap, bidPrice, askPrice, volatility, volatilityMultiplier, cac.getTrailingStopThreshold(), threshold,
-                        maxWap, minWap, vwap <= (1 - threshold) * maxWap, vwap >= (1 + threshold) * minWap));
+                        maxWap, minWap, askPrice <= (1 - threshold) * maxWap, bidPrice >= (1 + threshold) * minWap));
 
                 if (
                         (lastOrder.getQuantity() > 0 && position > 0 && maxWap > 0 && askPrice <= (1 - threshold) * maxWap) ||
