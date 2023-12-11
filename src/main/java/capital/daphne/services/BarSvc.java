@@ -269,8 +269,7 @@ public class BarSvc {
         }
         int period = numStatsBars;
         double multiplier = 2.0 / (period + 1);
-        // 原始公式用的是prev_vwap来计算的，所以需要lag(1), 但是这里我们希望计算的是prev_ema，所以lag(2)。后面我们还会用这里的prev_ema计算当前bar的ema。
-        DoubleColumn prevEmaColumn = Utils.ewm(wapColumn.lag(2), multiplier, "prevEma", true, false, period, period - 1);
+        DoubleColumn prevEmaColumn = Utils.ewm(wapColumn.lag(1), multiplier, "prevEma", true, false, period, period - 1);
         Double prevEmaValue = prevEmaColumn.get(prevEmaColumn.size() - 1);
         setEma(key, prevEmaValue);
     }

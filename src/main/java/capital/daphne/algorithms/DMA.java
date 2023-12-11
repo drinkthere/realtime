@@ -14,7 +14,6 @@ import tech.tablesaw.api.Table;
 import java.lang.reflect.Constructor;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 
 public class DMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(DMA.class);
@@ -31,12 +30,8 @@ public class DMA implements AlgorithmProcessor {
     }
 
     @Override
-    public List<Signal> getGTDSignals(Table inputDf, int position, int maxPosition) {
-        return null;
-    }
+    public Signal getSignal(Table inputDf, int position, int maxPosition, double bidPrice, double askPrice) {
 
-    @Override
-    public Signal getSignal(Table inputDf, int position, int maxPosition) {
         try {
             // 预处理dataframe，准备好对应的数据字段
             Table taDf = preProcess(inputDf);

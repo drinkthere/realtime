@@ -30,12 +30,7 @@ public class TrailingStop implements AlgorithmProcessor {
     }
 
     @Override
-    public List<Signal> getGTDSignals(Table df, int position, int maxPosition) {
-        return null;
-    }
-
-    @Override
-    public Signal getSignal(Table df, int position, int maxPosition) {
+    public Signal getSignal(Table df, int position, int maxPosition, double bidPrice, double askPrice) {
         if (position == 0) {
             return null;
         }
@@ -44,7 +39,7 @@ public class TrailingStop implements AlgorithmProcessor {
         Row row = df.row(df.rowCount() - 1);
 
         double volatility = row.getDouble("volatility");
-        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac, volatility);
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac.getVolatilityA(), ac.getVolatilityB(), ac.getVolatilityC(), volatility);
 
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
@@ -94,15 +89,15 @@ public class TrailingStop implements AlgorithmProcessor {
             if (lastOrderDateTime.plusSeconds(cac.getMinDurationBeforeClose()).isBefore(now) &&
                     lastOrderDateTime.plusSeconds(cac.getMaxDurationToClose()).isAfter(now)) {
                 logger.warn(String.format("TRAILING_STOP_SIGNAL_CHECK|accountId=%s|symbol=%s|secType=%s|orderId=%s|quantity=%d|" +
-                                "position=%d|vwap=%f|volatility=%f|volatilityMultiplier=%f|origThreshold=%f|threshold=%f|" +
+                                "position=%d|vwap=%f|bid=%f|ask=%f|volatility=%f|volatilityMultiplier=%f|origThreshold=%f|threshold=%f|" +
                                 "maxWap=%f|minWap=%f|bm=%b|sbm=%b",
                         accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(),
-                        position, vwap, volatility, volatilityMultiplier, cac.getTrailingStopThreshold(), threshold,
+                        position, vwap, bidPrice, askPrice, volatility, volatilityMultiplier, cac.getTrailingStopThreshold(), threshold,
                         maxWap, minWap, vwap <= (1 - threshold) * maxWap, vwap >= (1 + threshold) * minWap));
 
                 if (
-                        (lastOrder.getQuantity() > 0 && position > 0 && maxWap > 0 && vwap <= (1 - threshold) * maxWap) ||
-                                (lastOrder.getQuantity() < 0 && position < 0 && minWap > 0 && vwap >= (1 + threshold) * minWap)
+                        (lastOrder.getQuantity() > 0 && position > 0 && maxWap > 0 && askPrice <= (1 - threshold) * maxWap) ||
+                                (lastOrder.getQuantity() < 0 && position < 0 && minWap > 0 && bidPrice >= (1 + threshold) * minWap)
                 ) {
                     signal = Utils.fulfillSignal(accountId, symbol, secType, row.getDouble("vwap"), -lastOrder.getQuantity(), Signal.OrderType.CLOSE, "trailingStop");
                     logger.warn(String.format("TRAILING_STOP_SIGNAL_CHECK|generated signal %s %s %s", accountId, symbol, secType));

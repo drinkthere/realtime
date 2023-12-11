@@ -96,7 +96,7 @@ public class AppConfigManager {
             private int minIntervalBetweenSignal;
             private int numStatsBars;
             private float signalMargin;
-            private int volatilityA;
+            private float volatilityA;
             private int volatilityB;
             private int volatilityC;
             // 以下三个值是计算volatility时间权重的参数

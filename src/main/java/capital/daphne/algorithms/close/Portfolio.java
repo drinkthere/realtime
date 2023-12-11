@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
-import java.util.List;
 import java.util.UUID;
 
 public class Portfolio implements AlgorithmProcessor {
@@ -21,7 +20,7 @@ public class Portfolio implements AlgorithmProcessor {
     }
 
     @Override
-    public Signal getSignal(Table df, int position, int maxPosition) {
+    public Signal getSignal(Table df, int position, int maxPosition, double bidPrice, double askPrice) {
         if (position == 0) {
             return null;
         }
@@ -40,10 +39,5 @@ public class Portfolio implements AlgorithmProcessor {
         signal.setOrderType(Signal.OrderType.CLOSE);
         signal.setBenchmarkColumn("closePortfolio");
         return signal;
-    }
-
-    @Override
-    public List<Signal> getGTDSignals(Table df, int position, int maxPosition) {
-        return null;
     }
 }

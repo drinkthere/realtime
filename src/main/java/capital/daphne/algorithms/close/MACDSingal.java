@@ -40,12 +40,7 @@ public class MACDSingal implements AlgorithmProcessor {
     }
 
     @Override
-    public List<Signal> getGTDSignals(Table df, int position, int maxPosition) {
-        return null;
-    }
-
-    @Override
-    public Signal getSignal(Table inputDf, int position, int maxPosition) {
+    public Signal getSignal(Table inputDf, int position, int maxPosition, double bidPrice, double askPrice) {
         Table df = generateBenchmarkColumn(inputDf);
         Row row = df.row(df.rowCount() - 1);
 
@@ -113,9 +108,9 @@ public class MACDSingal implements AlgorithmProcessor {
         double signalMultiplier = 2.0 / (signalPeriod + 1);
 
         // Seed the EMA with the SMA value for its first data point
-        DoubleColumn prev_vwap = df.doubleColumn("prev_vwap");
-        DoubleColumn shortEma = Utils.ewm(prev_vwap, shortMultiplier, shortBenchmarkColumn, true, false, shortPeriod, shortPeriod - 1);
-        DoubleColumn longEma = Utils.ewm(prev_vwap, longMultiplier, longBenchmarkColumn, true, false, longPeriod, longPeriod - 1);
+        DoubleColumn vwap = df.doubleColumn("vwap");
+        DoubleColumn shortEma = Utils.ewm(vwap, shortMultiplier, shortBenchmarkColumn, true, false, shortPeriod, shortPeriod - 1);
+        DoubleColumn longEma = Utils.ewm(vwap, longMultiplier, longBenchmarkColumn, true, false, longPeriod, longPeriod - 1);
 
         DoubleColumn macdLine = shortEma.subtract(longEma);
         macdLine.setName(benchmarkColumn);

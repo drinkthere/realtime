@@ -3,7 +3,7 @@
     "host": "127.0.0.1",
     "port": 3306,
     "user": "root",
-    "password": "123456",
+    "password": "MhxzKhl@2023",
     "dbname": "quant",
     "initialConnectionsSize": 5,
     "maxConnectionsTotal": 10
@@ -42,7 +42,7 @@
       "minIntervalBetweenSignal": 72,
       "signalMargin": 0.0009,
       "numStatsBars": 18,
-      "volatilityA": 0,
+      "volatilityA": 0.8,
       "volatilityB": 200,
       "volatilityC": -500,
       "timeWeightedA": 1,

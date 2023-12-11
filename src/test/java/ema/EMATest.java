@@ -11,6 +11,7 @@ import capital.daphne.models.OrderInfo;
 import capital.daphne.models.Signal;
 import capital.daphne.models.WapCache;
 import capital.daphne.services.BarSvc;
+import capital.daphne.utils.Utils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ import testmodels.Bar;
 import testmodels.Sig;
 import testutils.TestUtils;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -68,7 +70,7 @@ public class EMATest {
         wapMaxMin = new WapCache();
 
         // 读取csv文件，加载List<Bar>
-        List<Bar> bars = TestUtils.loadCsv(currentDirectory + "/src/test/java/sma/spy_2023-09-27--2023-09-29.csv");
+        List<Bar> bars = TestUtils.loadCsv(currentDirectory + "/src/test/java/sma/SPY_20231208.csv");
 
         // 生成我们需要的barList
         List<BarInfo> barList = new ArrayList<>();
@@ -96,7 +98,6 @@ public class EMATest {
             if (barInfo == null) {
                 continue;
             }
-            logger.info(bar.getDate() + ", " + barInfo.getVolatility());
             barList.add(barInfo);
             if (barList.size() > maxBarListSize) {
                 // 如果超过最大值，移除最早加入barList的数据
@@ -113,7 +114,16 @@ public class EMATest {
             // 生成dataframe
             Table df = getTable(barList);
             Row row = df.row(df.rowCount() - 1);
-            Signal signal = ema.getSignal(df, position, maxPosition);
+            Signal signal = ema.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
+
+            String nowDateTime = row.getString("date_us");
+            LocalDateTime localDateTime = Utils.genUsDateTime(nowDateTime, "yyyy-MM-dd HH:mm:ssXXX");
+            int hour = localDateTime.getHour();
+            int minute = localDateTime.getMinute();
+            if (!isTradingNow(hour, minute)) {
+                continue;
+            }
+
             if (signal != null && signal.isValid()) {
                 position += signal.getQuantity();
                 Sig sig = new Sig();
@@ -129,7 +139,7 @@ public class EMATest {
                 wapMaxMin.setMinWap(signal.getWap());
             } else {
                 if (ac.getCloseAlgo() != null && df.rowCount() == maxBarListSize) {
-                    signal = closeProcessor.getSignal(df, position, maxPosition);
+                    signal = closeProcessor.getSignal(df, position, maxPosition, row.getDouble("vwap"), row.getDouble("vwap"));
                     if (signal != null && signal.isValid()) {
                         position += signal.getQuantity();
                         Sig sig = new Sig();
@@ -219,6 +229,10 @@ public class EMATest {
             dataframe.doubleColumn("volatility").append(barInfo.getVolatility());
         }
         DoubleColumn prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
+//        dataframe.removeColumns("vwap");
+//        dataframe.addColumns(prevVWapColumn.setName("vwap"));
+//
+//        prevVWapColumn = dataframe.doubleColumn("vwap").lag(1);
         dataframe.addColumns(prevVWapColumn.setName("prev_vwap"));
         return dataframe;
     }
@@ -259,5 +273,21 @@ public class EMATest {
         }
     }
 
+    private boolean isTradingNow(int hour, int minute) {
+        if (hour == 9 && minute >= 30) {
+            return true;
+        } else if (hour > 9 && hour < 16) {
+            return true;
+        } else if (hour == 16 && minute == 0) {
+            return true;
+        }
+        return false;
+    }
+
+    @Test
+    public void testGenMultiplier() {
+        double volatilityMultiplier = Utils.calToVolatilityMultiplier(0.2, 200, -250, 0.001213);
+        System.out.println(volatilityMultiplier);
+    }
 
 }

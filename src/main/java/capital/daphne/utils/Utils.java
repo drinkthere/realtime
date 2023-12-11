@@ -1,6 +1,5 @@
 package capital.daphne.utils;
 
-import capital.daphne.AppConfigManager;
 import capital.daphne.JedisManager;
 import capital.daphne.models.ActionInfo;
 import capital.daphne.models.OrderInfo;
@@ -8,6 +7,7 @@ import capital.daphne.models.Signal;
 import capital.daphne.models.TradingHours;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ib.client.TickType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import redis.clients.jedis.Jedis;
@@ -345,9 +345,25 @@ public class Utils {
         }
     }
 
-    public static double calToVolatilityMultiplier(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility) {
-        return ac.getVolatilityA() +
-                ac.getVolatilityB() * volatility +
-                ac.getVolatilityC() * volatility * volatility;
+    public static double calToVolatilityMultiplier(double volatilityA, int volatilityB, int volatilityC, double volatility) {
+        return volatilityA +
+                volatilityB * volatility +
+                volatilityC * volatility * volatility;
+    }
+
+    public static double getTickerPrice(String key, TickType type) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        double price = 0.0;
+        try (Jedis jedis = jedisPool.getResource()) {
+            String redisKey = key + ":" + type;
+            String priceStr = jedis.get(redisKey);
+            if (priceStr == null) {
+                return price;
+            }
+            price = Double.parseDouble(priceStr);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Math.max(price, 0.0);
     }
 }

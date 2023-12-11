@@ -10,7 +10,6 @@ import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.UUID;
 
 public class Reset implements AlgorithmProcessor {
@@ -26,12 +25,7 @@ public class Reset implements AlgorithmProcessor {
     }
 
     @Override
-    public List<Signal> getGTDSignals(Table df, int position, int maxPosition) {
-        return null;
-    }
-
-    @Override
-    public Signal getSignal(Table df, int position, int maxPosition) {
+    public Signal getSignal(Table df, int position, int maxPosition, double bidPrice, double askPrice) {
         if (position == 0) {
             return null;
         }
