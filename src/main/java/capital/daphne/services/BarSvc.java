@@ -97,6 +97,34 @@ public class BarSvc {
         }
     }
 
+    public BarInfo getLatestBar(String key, AppConfigManager.AppConfig.AlgorithmConfig ac) {
+        int minBarNum = ac.getNumStatsBars();
+
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            // 数据只与symbol和secType油管，和accountId无关
+            String redisKey = key + ":BAR_LIST";
+            String storedBarListJson = jedis.get(redisKey);
+            if (storedBarListJson != null) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                List<BarInfo> barList = objectMapper.readValue(storedBarListJson, new TypeReference<>() {
+                });
+                int size = barList.size();
+                if (size < minBarNum) {
+                    logger.info(String.format("barList is not ready, minBarNum=%d, currBarNum=%d", minBarNum, barList.size()));
+                    return null;
+                }
+                return barList.get(size - 1);
+            } else {
+                logger.info(key + " barList is empty");
+                return null;
+            }
+        } catch (Exception e) {
+            logger.error("getLatestBar, error:" + e.getMessage());
+            return null;
+        }
+    }
+
     public List<String> getWapList(String key) {
         // 因为存在parallel和rewrite的symbol，所以先做key映射然后在获取对应的wap信息
         List<String> wapList = new ArrayList<>();
@@ -255,10 +283,43 @@ public class BarSvc {
         }
     }
 
-    public void initEma(String key, List<String> wapList, int numStatsBars) {
+
+    public void updateVolatilityInRedis(String key, String volatility) {
+        String redisKey = String.format("%s:VOLATILITY", key);
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.set(redisKey, volatility);
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(redisKey + " set volatility failed, error:" + e.getMessage());
+        }
+    }
+
+    public Double[] getVolatilityInRedis(String key) {
+        String redisKey = String.format("%s:VOLATILITY", key);
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            String volatilityStr = jedis.get(redisKey);
+            if (volatilityStr == null) {
+                return null;
+            }
+
+            String[] splits = volatilityStr.split("\\|");
+            Double volatility = Double.parseDouble(splits[0]);
+            Double volatilityMultiplier = Double.parseDouble(splits[1]);
+            return new Double[]{volatility, volatilityMultiplier};
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            logger.error(redisKey + " set volatility failed, error:" + e.getMessage());
+            return null;
+        }
+    }
+
+    public double initEma(String key, List<String> wapList, int numStatsBars) {
         double ema = getEma(key);
         if (ema > 0.0) {
-            return;
+            return ema;
         }
 
         // 生成ema
@@ -272,6 +333,7 @@ public class BarSvc {
         DoubleColumn prevEmaColumn = Utils.ewm(wapColumn.lag(1), multiplier, "prevEma", true, false, period, period - 1);
         Double prevEmaValue = prevEmaColumn.get(prevEmaColumn.size() - 1);
         setEma(key, prevEmaValue);
+        return prevEmaValue;
     }
 
     public void setEma(String key, double ema) {

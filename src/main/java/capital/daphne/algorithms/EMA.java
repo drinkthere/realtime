@@ -7,14 +7,12 @@ import capital.daphne.services.BarSvc;
 import capital.daphne.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import tech.tablesaw.api.DoubleColumn;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 
 public class EMA implements AlgorithmProcessor {
     private static final Logger logger = LoggerFactory.getLogger(EMA.class);
@@ -34,15 +32,32 @@ public class EMA implements AlgorithmProcessor {
     }
 
     @Override
-    public Signal getSignal(Table inputDf, int position, int maxPosition, double bidPrice, double askPrice) {
+    public Signal getSignal(Table df, int position, int maxPosition, double bidPrice, double askPrice) {
         try {
-            if (!isEmaReady()) {
-                logger.info(String.format("%s %s %s EMA is not ready", ac.getAccountId(), ac.getSymbol(), ac.getSecType()));
+            // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
+            int numStatsBars = ac.getNumStatsBars();
+            benchmarkColumnName = ac.getName() + numStatsBars;
+
+            String key = ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType();
+
+            // 获取ema
+            Double ema = barSvc.getEma(key);
+            if (ema == 0) {
+                logger.warn(key + " ema is not ready");
                 return null;
             }
-            Table df = preProcess(inputDf);
-            Row latestBar = df.row(df.rowCount() - 1);
-            return processToGetSignal(latestBar, position, maxPosition, bidPrice, askPrice);
+
+            // 获取volatility
+            Double[] volaArr = barSvc.getVolatilityInRedis(key);
+            if (volaArr == null) {
+                System.out.println(key);
+                return null;
+            }
+            double volatility = volaArr[0];
+            double volatilityMultiplier = volaArr[1];
+
+            Row row = df.row(df.rowCount() - 1);
+            return processToGetSignal(row, position, maxPosition, ema, volatility, volatilityMultiplier, bidPrice, askPrice);
         } catch (Exception e) {
             e.printStackTrace();
             logger.error("save signal failed, error:" + e.getMessage());
@@ -50,33 +65,8 @@ public class EMA implements AlgorithmProcessor {
         }
     }
 
-    private Table preProcess(Table df) {
-        // 生成关键指标，这里是sma+numStatsBars,e.g. sma12
-        int numStatsBars = ac.getNumStatsBars();
-        benchmarkColumnName = ac.getName() + numStatsBars;
-        DoubleColumn vWapCol = df.doubleColumn("vwap");
-        DoubleColumn emaColumn = DoubleColumn.create(benchmarkColumnName, vWapCol.size());
 
-
-        int period = numStatsBars;
-        double multiplier = 2.0 / (period + 1);
-        String key = ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType();
-        Double prevEma = barSvc.getEma(key);
-        Double ema = vWapCol.get(vWapCol.size() - 1) * multiplier + prevEma * (1 - multiplier);
-        // System.out.println(df.row(df.rowCount() - 1).getString("date_us") + "|" + ema);
-        emaColumn.set(emaColumn.size() - 1, ema);
-        barSvc.setEma(key, ema);
-        barSvc.saveEmaToDb(key, benchmarkColumnName, ema);
-        df.addColumns(emaColumn);
-        logger.debug("====" + ema + "==" + emaColumn.get(emaColumn.size() - 1) + "==" + df.row(df.rowCount() - 1).getDouble(benchmarkColumnName));
-        return df;
-    }
-
-    private Signal processToGetSignal(Row row, int position, int maxPosition, double bidPrice, double askPrice) {
-        double volatility = row.getDouble("volatility");
-
-        double volatilityMultiplier = Utils.calToVolatilityMultiplier(ac.getVolatilityA(), ac.getVolatilityB(), ac.getVolatilityC(), volatility);
-        // System.out.println(ac.getVolatilityA() + "|" + ac.getVolatilityB() + "|" + ac.getVolatilityC() + "|" + volatility + "|" + volatilityMultiplier);
+    private Signal processToGetSignal(Row row, int position, int maxPosition, double ema, double volatility, double volatilityMultiplier, double bidPrice, double askPrice) {
         LocalDateTime lastSellDateTime = null;
         LocalDateTime lastBuyDateTime = null;
 
@@ -98,7 +88,6 @@ public class EMA implements AlgorithmProcessor {
         double sellSignalMargin = signalMargins[1];
         double buySignalMargin = signalMargins[0];
         double vwap = row.getDouble("vwap");
-        double ema = row.getDouble(benchmarkColumnName);
 
         long sellIntervalSeconds = 0L;
         if (!lastAction.equals(Signal.TradeActionType.NO_ACTION) && lastSellDateTime != null) {
@@ -134,20 +123,5 @@ public class EMA implements AlgorithmProcessor {
             signal.setGtdSec(ac.getGtdCancelAfterSec());
         }
         return signal;
-    }
-
-    private boolean isEmaReady() {
-        String key = ac.getAccountId() + ":" + ac.getSymbol() + ":" + ac.getSecType();
-        if (barSvc.getEma(key) > 0.0) {
-            return true;
-        }
-        initEMA(key);
-        return barSvc.getEma(key) > 0.0;
-    }
-
-    private void initEMA(String key) {
-        // 初始化ema的值
-        List<String> wapList = barSvc.getWapList(ac.getSymbol() + ":" + ac.getSecType());
-        barSvc.initEma(key, wapList, ac.getNumStatsBars());
     }
 }

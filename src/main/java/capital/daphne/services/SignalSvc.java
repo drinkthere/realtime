@@ -88,7 +88,7 @@ public class SignalSvc {
         }
     }
 
-    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, double volatility, double bidPrice, double askPrice) {
+    public Signal getTradeSignal(AppConfigManager.AppConfig.AlgorithmConfig ac, double bidPrice, double askPrice) {
         String accountId = ac.getAccountId();
         String symbol = ac.getSymbol();
         String secType = ac.getSecType();
@@ -97,7 +97,7 @@ public class SignalSvc {
 
 
         // 获取bar信息
-        Table df = barService.getDataTable(dataKey, ac, volatility);
+        Table df = barService.getDataTable(dataKey, ac, 0);
         if (df == null) {
             return null;
         }

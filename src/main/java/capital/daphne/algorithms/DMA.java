@@ -31,7 +31,6 @@ public class DMA implements AlgorithmProcessor {
 
     @Override
     public Signal getSignal(Table inputDf, int position, int maxPosition, double bidPrice, double askPrice) {
-
         try {
             // 预处理dataframe，准备好对应的数据字段
             Table taDf = preProcess(inputDf);
@@ -81,7 +80,7 @@ public class DMA implements AlgorithmProcessor {
         int slowWindow = dp.getSlowWindow();
         int trendWindow = dp.getTrendWindow() + slowWindow;
 
-        DoubleColumn vwap = df.doubleColumn("prev_vwap");
+        DoubleColumn vwap = df.doubleColumn("vwap");
         DoubleColumn fast = vwap.rolling(fastWindow).mean();
         DoubleColumn slow = vwap.rolling(slowWindow).mean();
         fast.setName("fast");
