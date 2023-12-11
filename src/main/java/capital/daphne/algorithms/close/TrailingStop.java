@@ -16,6 +16,8 @@ import redis.clients.jedis.JedisPool;
 import tech.tablesaw.api.Row;
 import tech.tablesaw.api.Table;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 public class TrailingStop implements AlgorithmProcessor {
