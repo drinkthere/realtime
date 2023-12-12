@@ -50,7 +50,6 @@ public class EMA implements AlgorithmProcessor {
             // 获取volatility
             Double[] volaArr = barSvc.getVolatilityInRedis(key);
             if (volaArr == null) {
-                System.out.println(key);
                 return null;
             }
             double volatility = volaArr[0];

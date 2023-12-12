@@ -25,8 +25,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class Main {
@@ -37,8 +35,10 @@ public class Main {
 
     private static SignalSvc signalSvc;
 
+    private static AppConfigManager.AppConfig appConfig;
+
     public static void main(String[] args) {
-        AppConfigManager.AppConfig appConfig = AppConfigManager.getInstance().getAppConfig();
+        appConfig = AppConfigManager.getInstance().getAppConfig();
 
         barSvc = new BarSvc();
         positionSvc = new PositionSvc();
@@ -52,20 +52,27 @@ public class Main {
         logger.info("initialize signal service");
         signalSvc = new SignalSvc(appConfig.getAlgorithms());
 
-        logger.info("start algorithm runner");
-        ScheduledExecutorService algosExecutor = Executors.newScheduledThreadPool(1);
-        schedulingRunAlgos(algosExecutor, appConfig);
+        logger.info("start bar data update runner");
+        startDataUpdateThread();
 
-        // todo 改成两个Thread
-        // data sync Thread用来接受bar更新的消息，处理ema等更新逻辑
-        // algorithm Thread用来定时做信号判断，给出信号消息
-        JedisPool jedisPool = JedisManager.getJedisPool();
+        logger.info("start algorithm runner");
+        startAlgorithmThread();
+    }
+
+
+    private static void startDataUpdateThread() {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(() -> startDataUpdate());
+    }
+
+    private static void startDataUpdate() {
+        JedisPool jedisPool = JedisManager.getPubsubPool();
         try (Jedis jedis = jedisPool.getResource()) {
             // 监听bar更新的消息，然后根据配置中的algorithm来进行判断和处理，如果有信号，就给trader模块发送信号
             jedis.subscribe(new JedisPubSub() {
                 @Override
                 public void onMessage(String channel, String message) {
-                    logger.info("Received message: " + message + " from channel: " + channel);
+                    logger.info("Received bar message: " + message + " from channel: " + channel);
                     String[] strings = Utils.parseKey(message);
                     String symbol = strings[0];
                     String secType = strings[1];
@@ -122,101 +129,119 @@ public class Main {
         }
     }
 
-    private static void schedulingRunAlgos(ScheduledExecutorService algoExecutor, AppConfigManager.AppConfig appConfig) {
-        algoExecutor.scheduleAtFixedRate(() -> {
-            List<AppConfigManager.AppConfig.AlgorithmConfig> algorithms = appConfig.getAlgorithms();
-            if (algorithms.size() == 0) {
-                logger.error("%s %s no configured algorithms to process");
-                return;
-            }
-            // 根据matchedAlgorithms，开启对应的线程来并行处理
-            int numThreads = algorithms.size();
-            ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
-            for (AppConfigManager.AppConfig.AlgorithmConfig ac : algorithms) {
-                String symbol = ac.getSymbol();
-                String secType = ac.getSecType();
+    private static void startAlgorithmThread() {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        executorService.submit(() -> startAlgorithm());
+    }
 
-                // 获取bid ask price
-                String key = Utils.genKey(symbol, secType);
-                double bidPrice = Utils.getTickerPrice(key, TickType.BID);
-                double askPrice = Utils.getTickerPrice(key, TickType.ASK);
-                if (bidPrice == 0.0 || askPrice == 0.0) {
-                    logger.error(String.format("Bid price or ask price is invalid, symbol=%s, secType=%s, bidPrice=%f, askPrice=%f", symbol, secType, bidPrice, askPrice));
-                    continue;
-                }
+    private static void startAlgorithm() {
+        JedisPool jedisPool = JedisManager.getPubsubPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            // 监听bar更新的消息，然后根据配置中的algorithm来进行判断和处理，如果有信号，就给trader模块发送信号
+            jedis.subscribe(new JedisPubSub() {
+                @Override
+                public void onMessage(String channel, String key) {
+                    logger.info("Received tick message: " + key + " from channel: " + channel);
+                    String[] strings = Utils.parseKey(key);
+                    String symbol = strings[0];
+                    String secType = strings[1];
 
-                executor.submit(() -> {
-                    try {
-                        // 当前股票已经有交易在进行
-                        String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
-                        boolean inProgress = Utils.isInProgress(inProgressKey);
-                        if (inProgress) {
-                            logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
-                            return;
-                        }
+                    // 获取bid ask price
+                    double bidPrice = Utils.getTickerPrice(key, TickType.BID);
+                    double askPrice = Utils.getTickerPrice(key, TickType.ASK);
 
-                        // 当前是否是可交易时间
-                        boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
-                        if (!isTradingNow) {
-                            logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
-                            return;
-                        }
+                    if (bidPrice == 0.0 || askPrice == 0.0) {
+                        logger.error(String.format("Bid price or ask price is invalid, symbol=%s, secType=%s, bidPrice=%f, askPrice=%f", symbol, secType, bidPrice, askPrice));
+                        return;
+                    }
 
-                        // 获取信号
-                        Signal tradeSignal = signalSvc.getTradeSignal(ac, bidPrice, askPrice);
-                        if (tradeSignal != null && tradeSignal.isValid()) {
-                            // 之所以把判断条件放在这里，是因为有些交易的benchmark（如EMA）对历史数据是有依赖的
-                            // 因此无论如何都调用一下getTradingSingal，把对应的benchmark值给计算出来
-//                            if (tradeSignal.getOrderType().equals(Signal.OrderType.OPEN) && ac.getDelayMs() > 0) {
-//                                Thread.sleep(ac.getDelayMs());
-//                            }
+                    // 在algorithms里面，过滤出涉及到这个股票的algorithm
+                    List<AppConfigManager.AppConfig.AlgorithmConfig> matchedAlgorithms = appConfig.getAlgorithms().stream()
+                            .filter(algorithm -> symbol.equals(algorithm.getSymbol()) && secType.equals(algorithm.getSecType()))
+                            .collect(Collectors.toList());
+                    if (matchedAlgorithms.size() == 0) {
+                        logger.error(String.format("%s %s no matched algorithms to process", symbol, secType));
+                        return;
+                    }
 
-                            if (!ac.isOnlyTriggerOption()) {
-                                // 如果不是只发送option数据，这里就把信号标的也发送了
-                                // 记录信号
-                                signalSvc.saveSignal(tradeSignal);
-
-                                // 发送下单信号
-                                signalSvc.sendSignal(tradeSignal);
-
-                                // 加锁，60s过期，订单成交也会解锁
-                                Utils.setInProgress(inProgressKey);
-                            } else {
-                                // 不真实发送信号，但是要更新下仓位，便于后续信号判断
-                                String accountId = tradeSignal.getAccountId();
-
-                                int quantity = tradeSignal.getQuantity();
-                                String orderType = tradeSignal.getOrderType().name();
-                                String strategy = tradeSignal.getBenchmarkColumn();
-                                updateOrdersInRedis(accountId, symbol, secType, 0, quantity, orderType, strategy);
-                                updateWapMaxMinInRedis(accountId, symbol, secType, orderType, tradeSignal.getWap());
-                                positionSvc.updatePosition(tradeSignal.getAccountId(), tradeSignal.getSymbol(), tradeSignal.getSecType(), quantity);
-                            }
-
-                            // 如果配置了option，就去下期权单
-                            AppConfigManager.AppConfig.TriggerOption to = ac.getTriggerOption();
-                            if (to != null) {
-                                inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
-                                inProgress = Utils.isInProgress(inProgressKey);
+                    // 根据matchedAlgorithms，开启对应的线程来并行处理
+                    int numThreads = matchedAlgorithms.size();
+                    ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+                    for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
+                        executor.submit(() -> {
+                            try {
+                                // 当前股票已经有交易在进行
+                                String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                boolean inProgress = Utils.isInProgress(inProgressKey);
                                 if (inProgress) {
                                     logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
                                     return;
                                 }
 
-                                // 额外触发option的下单信号
-                                signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
-                                Utils.setInProgress(inProgressKey);
+                                // 当前是否是可交易时间
+                                boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
+                                if (!isTradingNow) {
+                                    logger.info(String.format("account=%s, symbol=%s, secType=%s, is not trading now", ac.getAccountId(), symbol, secType));
+                                    return;
+                                }
+
+                                // 获取信号
+                                Signal tradeSignal = signalSvc.getTradeSignal(ac, bidPrice, askPrice);
+                                if (tradeSignal != null && tradeSignal.isValid()) {
+                                    // if (tradeSignal.getOrderType().equals(Signal.OrderType.OPEN) && ac.getDelayMs() > 0) {
+                                    //  Thread.sleep(ac.getDelayMs());
+                                    // }
+
+                                    if (!ac.isOnlyTriggerOption()) {
+                                        // 如果不是只发送option数据，这里就把信号标的也发送了
+                                        // 记录信号
+                                        signalSvc.saveSignal(tradeSignal);
+
+                                        // 发送下单信号
+                                        signalSvc.sendSignal(tradeSignal);
+
+                                        // 加锁，60s过期，订单成交也会解锁
+                                        Utils.setInProgress(inProgressKey);
+                                    } else {
+                                        // 不真实发送信号，但是要更新下仓位，便于后续信号判断
+                                        String accountId = tradeSignal.getAccountId();
+
+                                        int quantity = tradeSignal.getQuantity();
+                                        String orderType = tradeSignal.getOrderType().name();
+                                        String strategy = tradeSignal.getBenchmarkColumn();
+                                        updateOrdersInRedis(accountId, symbol, secType, 0, quantity, orderType, strategy);
+                                        updateWapMaxMinInRedis(accountId, symbol, secType, orderType, tradeSignal.getWap());
+                                        positionSvc.updatePosition(tradeSignal.getAccountId(), tradeSignal.getSymbol(), tradeSignal.getSecType(), quantity);
+                                    }
+
+                                    // 如果配置了option，就去下期权单
+                                    AppConfigManager.AppConfig.TriggerOption to = ac.getTriggerOption();
+                                    if (to != null) {
+                                        inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
+                                        inProgress = Utils.isInProgress(inProgressKey);
+                                        if (inProgress) {
+                                            logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
+                                            return;
+                                        }
+
+                                        // 额外触发option的下单信号
+                                        signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
+                                        Utils.setInProgress(inProgressKey);
+                                    }
+
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
                             }
-
-                        }
-
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                        });
                     }
-                });
-            }
-        }, 0, 1, TimeUnit.SECONDS);
+                    executor.shutdown();
+                }
+            }, "tickerUpdate");
+        } catch (Exception e) {
+            logger.error("handling subscription message failed, error:" + e.getMessage());
+        }
     }
 
     private static void updateOrdersInRedis(String accountId, String symbol, String secType, int orderId, int quantity, String orderType, String strategy) {

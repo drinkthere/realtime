@@ -22,9 +22,20 @@ public class JedisManager {
                 appConfig.getRedis().getPort(),
                 2000,
                 appConfig.getRedis().getPassword()); // 连接超时时间为 2 秒
+
+        pubsubPool = new JedisPool(
+                poolConfig,
+                appConfig.getRedis().getHost(),
+                appConfig.getRedis().getPort(),
+                2000,
+                appConfig.getRedis().getPassword()); // 连接超时时间为 2 秒
     }
 
     public static JedisPool getJedisPool() {
         return jedisPool;
+    }
+
+    public static JedisPool getPubsubPool() {
+        return pubsubPool;
     }
 }
