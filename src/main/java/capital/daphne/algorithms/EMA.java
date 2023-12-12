@@ -117,7 +117,7 @@ public class EMA implements AlgorithmProcessor {
                 && (position > -maxPosition) && resetDatetime == null) {
             signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
         }
-        if (ac.getGtdCancelAfterSec() > 0) {
+        if (signal != null && ac.getGtdCancelAfterSec() > 0) {
             // 如果是挂gtd订单，这里设置有效挂单时间
             signal.setGtd(true);
             signal.setGtdSec(ac.getGtdCancelAfterSec());
