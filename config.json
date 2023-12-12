@@ -3,7 +3,7 @@
     "host": "127.0.0.1",
     "port": 3306,
     "user": "root",
-    "password": "MhxzKhl@2023",
+    "password": "123456",
     "dbname": "quant",
     "initialConnectionsSize": 5,
     "maxConnectionsTotal": 10

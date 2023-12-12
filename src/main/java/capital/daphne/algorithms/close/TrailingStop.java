@@ -93,7 +93,7 @@ public class TrailingStop implements AlgorithmProcessor {
                                 "maxWap=%f|minWap=%f|bm=%b|sbm=%b",
                         accountId, symbol, secType, lastOrder.getOrderId(), lastOrder.getQuantity(),
                         position, vwap, bidPrice, askPrice, volatility, volatilityMultiplier, cac.getTrailingStopThreshold(), threshold,
-                        maxWap, minWap, vwap <= (1 - threshold) * maxWap, vwap >= (1 + threshold) * minWap));
+                        maxWap, minWap, askPrice <= (1 - threshold) * maxWap, bidPrice >= (1 + threshold) * minWap));
 
                 if (
                         (lastOrder.getQuantity() > 0 && position > 0 && maxWap > 0 && askPrice <= (1 - threshold) * maxWap) ||
