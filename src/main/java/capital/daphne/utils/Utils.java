@@ -271,16 +271,26 @@ public class Utils {
         }
     }
 
-    public static void setInProgress(String redisKey) {
+    public static void startProgress(String redisKey, int timeout) {
         JedisPool jedisPool = JedisManager.getJedisPool();
         try (Jedis jedis = jedisPool.getResource()) {
             jedis.set(redisKey, "true");
-            long timestamp = System.currentTimeMillis() / 1000 + 60;
+            long timestamp = System.currentTimeMillis() / 1000 + timeout;
             jedis.expireAt(redisKey, timestamp);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
+    public static void finishProgress(String redisKey) {
+        JedisPool jedisPool = JedisManager.getJedisPool();
+        try (Jedis jedis = jedisPool.getResource()) {
+            jedis.del(redisKey);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     public static LocalDateTime genUsDateTime(String dateTimeStr, String pattern) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern(pattern);

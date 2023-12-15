@@ -171,14 +171,6 @@ public class Main {
                     for (AppConfigManager.AppConfig.AlgorithmConfig ac : matchedAlgorithms) {
                         executor.submit(() -> {
                             try {
-                                // 当前股票已经有交易在进行
-                                String inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
-                                boolean inProgress = Utils.isInProgress(inProgressKey);
-                                if (inProgress) {
-                                    logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
-                                    return;
-                                }
-
                                 // 当前是否是可交易时间
                                 boolean isTradingNow = Utils.isTradingNow(symbol, secType, Utils.genUsDateTimeNow(), ac.getStartTradingAfterOpenMarketSeconds());
                                 if (!isTradingNow) {
@@ -186,23 +178,40 @@ public class Main {
                                     return;
                                 }
 
+                                // 判断是否正在进行algo判断
+                                String algoInProgressKey = String.format("%s:%s:%s:ALGO_RUNING", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                if (Utils.isInProgress(algoInProgressKey)) {
+                                    logger.warn(String.format("%s algo checking is in progress", algoInProgressKey));
+                                    return;
+                                }
+                                // 开始做algo判断
+                                Utils.startProgress(algoInProgressKey, 2);
+
                                 // 获取信号
                                 Signal tradeSignal = signalSvc.getTradeSignal(ac, bidPrice, askPrice);
+
                                 if (tradeSignal != null && tradeSignal.isValid()) {
-                                    // if (tradeSignal.getOrderType().equals(Signal.OrderType.OPEN) && ac.getDelayMs() > 0) {
-                                    //  Thread.sleep(ac.getDelayMs());
-                                    // }
+                                    // 当前股票已经有交易在进行
+                                    String orderInProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), ac.getSymbol(), ac.getSecType());
+                                    boolean inProgress = Utils.isInProgress(orderInProgressKey);
+                                    if (inProgress) {
+                                        logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", orderInProgressKey));
+                                        Utils.finishProgress(algoInProgressKey);
+                                        return;
+                                    }
 
                                     if (!ac.isOnlyTriggerOption()) {
-                                        // 如果不是只发送option数据，这里就把信号标的也发送了
-                                        // 记录信号
-                                        signalSvc.saveSignal(tradeSignal);
+                                        List<Signal> signals = signalSvc.processToMultipleSignal(tradeSignal, ac);
+                                        for (Signal sig : signals) {
+                                            // 如果不是只发送option数据，这里就把信号标的也发送了
+                                            // 记录信号
+                                            signalSvc.saveSignal(sig);
 
-                                        // 发送下单信号
-                                        signalSvc.sendSignal(tradeSignal);
-
+                                            // 发送下单信号
+                                            signalSvc.sendSignal(sig);
+                                        }
                                         // 加锁，60s过期，订单成交也会解锁
-                                        Utils.setInProgress(inProgressKey);
+                                        Utils.startProgress(orderInProgressKey, 60);
                                     } else {
                                         // 不真实发送信号，但是要更新下仓位，便于后续信号判断
                                         String accountId = tradeSignal.getAccountId();
@@ -218,19 +227,18 @@ public class Main {
                                     // 如果配置了option，就去下期权单
                                     AppConfigManager.AppConfig.TriggerOption to = ac.getTriggerOption();
                                     if (to != null) {
-                                        inProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
-                                        inProgress = Utils.isInProgress(inProgressKey);
+                                        orderInProgressKey = String.format("%s:%s:%s:IN_PROGRESS", ac.getAccountId(), symbol, Types.SecType.OPT.name());
+                                        inProgress = Utils.isInProgress(orderInProgressKey);
                                         if (inProgress) {
-                                            logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", inProgressKey));
-                                            return;
+                                            logger.warn(String.format("%s Order is in progressing, won't trigger signal this time", orderInProgressKey));
+                                        } else {
+                                            // 额外触发option的下单信号
+                                            signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
+                                            Utils.startProgress(orderInProgressKey, 60);
                                         }
-
-                                        // 额外触发option的下单信号
-                                        signalSvc.triggerOptionSignal(tradeSignal, ac.getTriggerOption());
-                                        Utils.setInProgress(inProgressKey);
                                     }
-
                                 }
+                                Utils.finishProgress(algoInProgressKey);
                             } catch (Exception e) {
                                 e.printStackTrace();
                             }
@@ -250,8 +258,10 @@ public class Main {
         try (Jedis jedis = jedisPool.getResource()) {
             String redisKey = String.format("%s:%s:%s:ORDER_LIST", accountId, symbol, secType);
             if (orderType.equals("CLOSE")) {
+                logger.info(redisKey + " del ORDER_LIST");
                 // close信号来时，清除队列中的数据
                 jedis.del(redisKey);
+                logger.info(redisKey + " del LAST_ACTION");
                 jedis.del(lastActionInfoKey);
             } else if (orderType.equals("OPEN")) {
                 // open信号来时，添加数据进入队列

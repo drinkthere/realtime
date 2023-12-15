@@ -109,6 +109,10 @@ public class AppConfigManager {
             private int marketOpenReductionSeconds;
             // 计算衰减值的曲率参数
             private double reductionFactor;
+            // 发送多个信号
+            private int multiSignals;
+            // 信号之间价差百分比
+            private double signalsDiffPercentage;
             private DMAParams dmaParams;
 
             private CloseAlgorithmConfig closeAlgo;

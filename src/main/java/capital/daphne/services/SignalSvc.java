@@ -22,10 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class SignalSvc {
     private static final Logger logger = LoggerFactory.getLogger(SignalSvc.class);
@@ -286,6 +283,36 @@ public class SignalSvc {
         optionSignal.setOptionRight(right);
         saveSignal(optionSignal);
         sendSignal(optionSignal);
+    }
+
+    public List<Signal> processToMultipleSignal(Signal signal, AppConfigManager.AppConfig.AlgorithmConfig ac) {
+        List<Signal> signals = new ArrayList<>();
+        signals.add(signal);
+        if (signal.getOrderType().equals(Signal.OrderType.OPEN)) {
+            // 读取配置获取下单数量
+            int signalsNum = ac.getMultiSignals();
+            if (signalsNum <= 1) {
+                return signals;
+            }
+
+            double signalsDiffPercentage = ac.getSignalsDiffPercentage();
+            double wap = signal.getWap();
+            int quantity = signal.getQuantity();
+            for (int i = 1; i < signalsNum; i++) {
+                Signal newSignal = (Signal) signal.clone();
+                newSignal.setUuid(UUID.randomUUID().toString());
+                if (quantity > 0) {
+                    // buy
+                    wap = wap * (1 - signalsDiffPercentage);
+                } else if (quantity < 0) {
+                    // sell
+                    wap = wap * (1 + signalsDiffPercentage);
+                }
+                newSignal.setWap(wap);
+                signals.add(newSignal);
+            }
+        }
+        return signals;
     }
 
     private AlgorithmProcessor loadAlgoProcessor(String packageName, String className, AppConfigManager.AppConfig.AlgorithmConfig ac) {
