@@ -18,6 +18,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public class OrderTest {
@@ -249,6 +250,12 @@ public class OrderTest {
             }
         }
         return closestDate;
+    }
+
+    @Test
+    public void testDate() {
+        String s = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS).toString();
+        System.out.println(s);
     }
 }
 

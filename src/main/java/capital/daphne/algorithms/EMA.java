@@ -110,11 +110,11 @@ public class EMA implements AlgorithmProcessor {
         if (askPrice <= longThreshold
                 && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.SELL) || buyIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                 && (position < maxPosition) && resetDatetime == null) {
-            signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
+            signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), askPrice, ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
         } else if (bidPrice >= shortThreshold
                 && (lastAction.equals(Signal.TradeActionType.NO_ACTION) || lastAction.equals(Signal.TradeActionType.BUY) || sellIntervalSeconds >= ac.getMinIntervalBetweenSignal())
                 && (position > -maxPosition) && resetDatetime == null) {
-            signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), vwap, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
+            signal = Utils.fulfillSignal(ac.getAccountId(), ac.getSymbol(), ac.getSecType(), bidPrice, -ac.getOrderSize(), Signal.OrderType.OPEN, benchmarkColumnName);
         }
         if (signal != null && ac.getGtdCancelAfterSec() > 0) {
             // 如果是挂gtd订单，这里设置有效挂单时间

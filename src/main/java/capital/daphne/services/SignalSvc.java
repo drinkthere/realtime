@@ -295,10 +295,15 @@ public class SignalSvc {
                 return signals;
             }
 
+            int position = positionService.getPosition(signal.getAccountId(), signal.getSymbol(), signal.getSecType());
+            int maxPosition = ac.getMaxPortfolioPositions();
+            int maxSignalNums = (maxPosition - Math.abs(position)) / ac.getOrderSize();
+            int ordersNums = Math.min(signalsNum, maxSignalNums);
+
             double signalsDiffPercentage = ac.getSignalsDiffPercentage();
             double wap = signal.getWap();
             int quantity = signal.getQuantity();
-            for (int i = 1; i < signalsNum; i++) {
+            for (int i = 1; i < ordersNums; i++) {
                 Signal newSignal = (Signal) signal.clone();
                 newSignal.setUuid(UUID.randomUUID().toString());
                 if (quantity > 0) {
