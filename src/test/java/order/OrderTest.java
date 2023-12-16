@@ -256,6 +256,12 @@ public class OrderTest {
     public void testDate() {
         String s = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS).toString();
         System.out.println(s);
+
+        LocalDateTime dateTime = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
+
+        String formattedDateTime = dateTime.format(formatter);
+        System.out.println(formattedDateTime);
     }
 }
 
