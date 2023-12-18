@@ -92,7 +92,7 @@ public class BarSvc {
                 return null;
             }
         } catch (Exception e) {
-            logger.error("getDataTable, error:" + e.getMessage());
+            logger.warn("getDataTable, error:" + e.getMessage());
             return null;
         }
     }
@@ -107,7 +107,7 @@ public class BarSvc {
             return storedList == null ? wapList : storedList;
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error(key + " get wapList failed, error:" + e.getMessage());
+            logger.warn(key + " get wapList failed, error:" + e.getMessage());
             return wapList;
         }
     }
@@ -187,13 +187,13 @@ public class BarSvc {
                 logger.debug(String.format("%s %s %s max_wap=%f, min_wap=%f, volatility=%f adjustedVolatility=%f insert wap mark successfully.",
                         accountId, symbol, secType, maxWap, minWap, volatility, adjustedVolatility));
             } else {
-                logger.error(String.format("%s %s %s max_wap=%f, min_wap=%f, volatility=%f adjustedVolatility=%f insert wap mark failed.",
+                logger.warn(String.format("%s %s %s max_wap=%f, min_wap=%f, volatility=%f adjustedVolatility=%f insert wap mark failed.",
                         accountId, symbol, secType, maxWap, minWap, volatility, adjustedVolatility));
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
-            logger.error(String.format("%s %s %s max_wap=%f, min_wap=%f volatility=%f adjustedVolatility=%f save wap mark failed.",
+            logger.warn(String.format("%s %s %s max_wap=%f, min_wap=%f volatility=%f adjustedVolatility=%f save wap mark failed.",
                     accountId, symbol, secType, maxWap, minWap, volatility, adjustedVolatility));
         }
     }
@@ -206,7 +206,7 @@ public class BarSvc {
 
         LocalDateTime marketOpenTime = Utils.getMarketOpenTime(symbol, secType);
         if (marketOpenTime == null) {
-            logger.error(String.format("%s %s market open time is null", symbol, secType));
+            logger.warn(String.format("%s %s market open time is null", symbol, secType));
             return volatility;
         }
 
@@ -293,7 +293,7 @@ public class BarSvc {
             return emaString == null ? 0.0 : Double.parseDouble(emaString);
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error(redisKey + " get ema failed, error:" + e.getMessage());
+            logger.warn(redisKey + " get ema failed, error:" + e.getMessage());
             return 0.0;
         }
     }
@@ -306,7 +306,7 @@ public class BarSvc {
             jedis.del(redisKey);
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error(redisKey + " clear ema failed, error:" + e.getMessage());
+            logger.warn(redisKey + " clear ema failed, error:" + e.getMessage());
         }
     }
 
@@ -328,12 +328,12 @@ public class BarSvc {
                 logger.debug(String.format("%s %s %s benchmark=%s, benchmarkValue=%f insert benchmark successfully.",
                         accountId, symbol, secType, benchmark, benchmarkValue));
             } else {
-                logger.error(String.format("%s %s %s benchmark=%s, benchmarkValue=%f insert benchmark failed.",
+                logger.warn(String.format("%s %s %s benchmark=%s, benchmarkValue=%f insert benchmark failed.",
                         accountId, symbol, secType, benchmark, benchmarkValue));
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            logger.error(String.format("%s %s %s benchmark=%s, benchmarkValue=%f saveEmaToDb failed.",
+            logger.warn(String.format("%s %s %s benchmark=%s, benchmarkValue=%f saveEmaToDb failed.",
                     accountId, symbol, secType, benchmark, benchmarkValue));
         }
     }

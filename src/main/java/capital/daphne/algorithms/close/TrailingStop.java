@@ -107,7 +107,7 @@ public class TrailingStop implements AlgorithmProcessor {
             return signal;
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error(String.format("get trailingStop close signal failed, accountId=%s, symbol=%s, secType=%s error=%s",
+            logger.warn(String.format("get trailingStop close signal failed, accountId=%s, symbol=%s, secType=%s error=%s",
                     accountId, symbol, secType, e.getMessage()));
             return null;
         }

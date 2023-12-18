@@ -51,7 +51,7 @@ public class Main {
                             .filter(algorithm -> symbol.equals(algorithm.getSymbol()) && secType.equals(algorithm.getSecType()))
                             .collect(Collectors.toList());
                     if (matchedAlgorithms.size() == 0) {
-                        logger.error(String.format("%s %s no matched algorithms to process", symbol, secType));
+                        logger.warn(String.format("%s %s no matched algorithms to process", symbol, secType));
                         return;
                     }
 
@@ -63,10 +63,10 @@ public class Main {
                     double bidPrice = Utils.getTickerPrice(key, TickType.BID);
                     double askPrice = Utils.getTickerPrice(key, TickType.ASK);
                     if (bidPrice == 0.0 || askPrice == 0.0) {
-                        logger.error(String.format("Bid price or ask price is invalid, symbol=%s, bidPrice=%f, askPrice=%f", symbol, bidPrice, askPrice));
+                        logger.warn(String.format("Bid price or ask price is invalid, symbol=%s, bidPrice=%f, askPrice=%f", symbol, bidPrice, askPrice));
                         return;
                     }
-                    
+
 
                     // 根据matchedAlgorithms，开启对应的线程来并行处理
                     int numThreads = matchedAlgorithms.size();
@@ -119,7 +119,7 @@ public class Main {
                 }
             }, "barUpdateChannel");
         } catch (Exception e) {
-            logger.error("handling subscription message failed, error:" + e.getMessage());
+            logger.warn("handling subscription message failed, error:" + e.getMessage());
         }
     }
 }

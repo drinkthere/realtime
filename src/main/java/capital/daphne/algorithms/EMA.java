@@ -45,7 +45,7 @@ public class EMA implements AlgorithmProcessor {
             return processToGetSignal(latestBar, position, maxPosition, bidPrice, askPrice);
         } catch (Exception e) {
             e.printStackTrace();
-            logger.error("save signal failed, error:" + e.getMessage());
+            logger.warn("save signal failed, error:" + e.getMessage());
             return null;
         }
     }
@@ -114,7 +114,6 @@ public class EMA implements AlgorithmProcessor {
 
         double longThreshold = ema * (1 - buySignalMargin);
         double shortThreshold = ema * (1 + sellSignalMargin);
-
         Signal signal = null;
         logger.info(String.format("%s|%s|%s|%s|place|vol=%f|volMulti:%f|ema=%f|sm=%f|bsm=%f|ssm=%f|vwap=%f|ask=%f|<=%f %s|bid=%f|>=%f %s|pos=%d|%s",
                 time, ac.getAccountId(), ac.getSymbol(), ac.getSecType(), volatility, volatilityMultiplier, ema, ac.getSignalMargin(),

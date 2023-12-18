@@ -113,7 +113,7 @@ public class SignalSvc {
                         symbol, secType, algoKey));
                 AlgorithmProcessor closePortfolioProcessor = closePortfolioProcessorMap.get(algoKey);
                 if (closePortfolioProcessor == null) {
-                    logger.error(String.format("symbol=%s, secType=%s, algoKey=%s can't not find closePortfolioProcessor",
+                    logger.warn(String.format("symbol=%s, secType=%s, algoKey=%s can't not find closePortfolioProcessor",
                             symbol, secType, algoKey));
                     return null;
                 }
@@ -162,7 +162,7 @@ public class SignalSvc {
             logger.info("save signal successfully, signal: " + sig);
         } catch (SQLException e) {
             e.printStackTrace();
-            logger.error("save signal failed, error:" + e.getMessage());
+            logger.warn("save signal failed, error:" + e.getMessage());
         }
     }
 
@@ -215,7 +215,7 @@ public class SignalSvc {
                     logger.debug("Response: " + response.toString());
                 }
             } else {
-                logger.error("HTTP POST request failed with response code: " + responseCode);
+                logger.warn("HTTP POST request failed with response code: " + responseCode);
             }
             connection.disconnect();
         } catch (IOException e) {
